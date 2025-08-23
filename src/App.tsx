@@ -1,74 +1,56 @@
-import React from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { WalletProvider } from './contexts/WalletProvider'
-import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
+import { Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
-// Solana Pages
-import MultiSender from './pages/solana/MultiSender'
-import WalletCreator from './pages/solana/WalletCreator'
-import VanityAddress from './pages/solana/VanityAddress'
-import TokenCreator from './pages/solana/TokenCreator'
-import TokenBurner from './pages/solana/TokenBurner'
-
-// Analytics
-import { analytics } from './services/analytics'
+// Solana tool pages
+import MultiSender from './pages/solana/MultiSender';
+import WalletCreator from './pages/solana/WalletCreator';
+import VanityGenerator from './pages/solana/VanityAddress';
+import TokenCreator from './pages/solana/TokenCreator';
+import TokenBurner from './pages/solana/TokenBurner';
 
 function App() {
-  React.useEffect(() => {
-    // Initialize analytics
-    analytics.init()
-    
-    // Track page views
-    analytics.track('app_loaded', {
-      timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent
-    })
-  }, [])
-
   return (
-    <WalletProvider>
-      <div className="min-h-screen bg-background">
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            
-            {/* Solana Routes */}
-            <Route path="solana/multi-sender" element={<MultiSender />} />
-            <Route path="solana/wallet-creator" element={<WalletCreator />} />
-            <Route path="solana/vanity" element={<VanityAddress />} />
-            <Route path="solana/token-creator" element={<TokenCreator />} />
-            <Route path="solana/token-burner" element={<TokenBurner />} />
-            
-            {/* EVM Routes - Coming in Phase 2 */}
-            <Route path="ethereum/*" element={<ComingSoon network="Ethereum" />} />
-            <Route path="polygon/*" element={<ComingSoon network="Polygon" />} />
-            <Route path="bsc/*" element={<ComingSoon network="BSC" />} />
-            
-            {/* Catch all - redirect to dashboard */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Route>
-        </Routes>
-      </div>
-    </WalletProvider>
-  )
+    <ErrorBoundary context="app_root">
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={
+            <ErrorBoundary context="dashboard">
+              <Dashboard />
+            </ErrorBoundary>
+          } />
+          
+          {/* Solana Tools */}
+          <Route path="solana/multi-sender" element={
+            <ErrorBoundary context="solana_multi_sender">
+              <MultiSender />
+            </ErrorBoundary>
+          } />
+          <Route path="solana/wallet-creator" element={
+            <ErrorBoundary context="solana_wallet_creator">
+              <WalletCreator />
+            </ErrorBoundary>
+          } />
+          <Route path="solana/vanity-generator" element={
+  <ErrorBoundary context="solana_vanity_generator">
+    <VanityAddress />
+            </ErrorBoundary>
+          } />
+          <Route path="solana/token-creator" element={
+            <ErrorBoundary context="solana_token_creator">
+              <TokenCreator />
+            </ErrorBoundary>
+          } />
+          <Route path="solana/token-burner" element={
+            <ErrorBoundary context="solana_token_burner">
+              <TokenBurner />
+            </ErrorBoundary>
+          } />
+        </Route>
+      </Routes>
+    </ErrorBoundary>
+  );
 }
 
-// Coming Soon component for future networks
-function ComingSoon({ network }: { network: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-      <div className="text-6xl mb-4">🚧</div>
-      <h2 className="text-2xl font-bold mb-2">{network} Tools Coming Soon</h2>
-      <p className="text-muted-foreground mb-4">
-        We're working hard to bring you {network} tools in Phase 2
-      </p>
-      <div className="text-sm text-muted-foreground">
-        Currently focusing on Solana tools in Phase 1
-      </div>
-    </div>
-  )
-}
-
-export default App
+export default App;

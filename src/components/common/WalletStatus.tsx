@@ -1,4 +1,4 @@
-// src/components/common/WalletStatus.tsx
+// src/components/common/WalletStatus.tsx (Fixed)
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +19,7 @@ export default function WalletStatus() {
     connected, 
     publicKey, 
     balance, 
-    tokens,
+    tokens = [], // Default to empty array
     network,
     refreshBalance,
     isLoading
@@ -27,7 +27,7 @@ export default function WalletStatus() {
 
   // Format balance for display
   const formatBalance = (lamports: number | null): string => {
-    if (lamports === null) return '0.00';
+    if (lamports === null || lamports === undefined) return '0.0000';
     return (lamports / 1000000000).toFixed(4); // Convert lamports to SOL
   };
 
@@ -35,7 +35,7 @@ export default function WalletStatus() {
   const copyAddress = async () => {
     if (!publicKey) return;
     try {
-      await navigator.clipboard.writeText(publicKey.toBase58());
+      await navigator.clipboard.writeText(publicKey.toString());
       // You could add a toast notification here
       console.log('Address copied to clipboard');
     } catch (error) {
@@ -49,7 +49,7 @@ export default function WalletStatus() {
     const baseUrl = network === 'mainnet-beta' 
       ? 'https://explorer.solana.com' 
       : 'https://explorer.solana.com?cluster=devnet';
-    window.open(`${baseUrl}/address/${publicKey.toBase58()}`, '_blank');
+    window.open(`${baseUrl}/address/${publicKey.toString()}`, '_blank');
   };
 
   // Refresh wallet data
@@ -133,7 +133,7 @@ export default function WalletStatus() {
             </div>
           </div>
           <div className="font-mono text-xs bg-muted/50 p-2 rounded border break-all">
-            {publicKey?.toBase58()}
+            {publicKey?.toString() || 'Not available'}
           </div>
         </div>
 
@@ -154,7 +154,7 @@ export default function WalletStatus() {
               <TrendingUp className="w-4 h-4 text-green-500" />
             )}
           </div>
-          {balance === 0 && network === 'devnet' && (
+          {(balance === 0 || balance === null) && network === 'devnet' && (
             <div className="flex items-start gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
               <AlertCircle className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="text-blue-700">

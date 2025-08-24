@@ -1,4 +1,4 @@
-// src/pages/Dashboard.tsx (Enhanced with Step 3 Components)
+// src/pages/Dashboard.tsx (Fixed)
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +45,7 @@ export default function Dashboard() {
     },
     {
       title: 'SOL Balance',
-      value: connected ? (isLoading ? '...' : `${(balance || 0) / 1000000000} SOL`) : '0.00 SOL',
+      value: connected ? (isLoading ? '...' : `${((balance || 0) / 1000000000).toFixed(4)} SOL`) : '0.00 SOL',
       icon: TrendingUp,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100'
@@ -66,7 +66,7 @@ export default function Dashboard() {
       description: 'Send SOL or tokens to multiple addresses at once',
       icon: Send,
       path: '/solana/multi-sender',
-      badge: 'Coming Soon',
+      badge: 'Step 4',
       color: 'border-blue-200 hover:border-blue-300',
       available: false
     },
@@ -211,20 +211,10 @@ export default function Dashboard() {
                   <Button 
                     variant={tool.available ? "default" : "outline"} 
                     className="w-full"
-                    asChild={tool.available}
                     disabled={!tool.available}
                   >
-                    {tool.available ? (
-                      <a href={tool.path}>
-                        Launch Tool
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </a>
-                    ) : (
-                      <>
-                        Coming Soon
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
+                    {tool.available ? 'Launch Tool' : 'Coming Soon'}
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </CardContent>
               </Card>

@@ -1,17 +1,15 @@
+// src/main.tsx (Fixed)
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import './index.css'
+import { Analytics } from '@vercel/analytics/react'
 
-// Polyfills for Solana
-import { Buffer } from 'buffer'
-window.Buffer = Buffer
+const root = ReactDOM.createRoot(document.getElementById('root')!);
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>,
-)
+    <App />
+    <Analytics />
+  </React.StrictMode>
+);

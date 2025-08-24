@@ -1,4 +1,4 @@
-// src/components/common/TransactionHistory.tsx
+// src/components/common/TransactionHistory.tsx (Fixed)
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,10 +29,11 @@ interface TransactionItem {
 export default function TransactionHistory() {
   const { 
     connected, 
-    transactionHistory, 
+    transactionHistory = [], // Default to empty array
     network,
     refreshTransactionHistory,
-    isLoading
+    isLoading,
+    publicKey
   } = useSolanaWallet();
 
   // Format timestamp for display
@@ -64,9 +65,18 @@ export default function TransactionHistory() {
     window.open(`${baseUrl}/tx/${signature}`, '_blank');
   };
 
+  // Open address in explorer
+  const openAddressInExplorer = () => {
+    if (!publicKey) return;
+    const baseUrl = network === 'mainnet-beta' 
+      ? 'https://explorer.solana.com' 
+      : 'https://explorer.solana.com?cluster=devnet';
+    window.open(`${baseUrl}/address/${publicKey.toString()}`, '_blank');
+  };
+
   // Refresh transaction history
   const handleRefresh = async () => {
-    if (!connected) return;
+    if (!connected || !refreshTransactionHistory) return;
     try {
       await refreshTransactionHistory();
     } catch (error) {
@@ -237,18 +247,13 @@ export default function TransactionHistory() {
         )}
 
         {/* View All Button */}
-        {transactionHistory && transactionHistory.length > 0 && (
+        {transactionHistory && transactionHistory.length > 0 && publicKey && (
           <div className="pt-3 border-t mt-3">
             <Button 
               variant="outline" 
               size="sm" 
               className="w-full"
-              onClick={() => {
-                const baseUrl = network === 'mainnet-beta' 
-                  ? 'https://explorer.solana.com' 
-                  : 'https://explorer.solana.com?cluster=devnet';
-                window.open(`${baseUrl}/address/${connected}`, '_blank');
-              }}
+              onClick={openAddressInExplorer}
             >
               <ExternalLink className="w-3 h-3 mr-2" />
               View All Transactions

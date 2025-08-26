@@ -1,16 +1,15 @@
+// src/components/common/AnalyticsDebug.tsx - CSV METHOD FIXED
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useAnalytics } from '@/contexts/AnalyticsProvider';
 import { Bug, Activity, Zap, AlertTriangle } from 'lucide-react';
+import analytics from '@/services/analytics';
 
-// Only show in development
 const AnalyticsDebug = () => {
-  const { trackEvent, isInitialized } = useAnalytics();
   const [testResults, setTestResults] = useState<string[]>([]);
+  const [isInitialized] = useState(true);
 
-  // Only render in development
   if (import.meta.env.NODE_ENV !== 'development') {
     return null;
   }
@@ -20,32 +19,30 @@ const AnalyticsDebug = () => {
   };
 
   const testPageView = () => {
-    trackEvent.pageView('/analytics-test', { 
-      source: 'debug_panel',
-      timestamp: new Date().toISOString() 
-    });
+    analytics.pageView('/analytics-test', 'Analytics Test Page');
     addTestResult('📊 Page view event sent');
   };
 
   const testWalletEvent = () => {
-    trackEvent.walletConnected({
-      wallet: 'Test Wallet',
-      network: 'solana',
+    analytics.walletConnected({
+      wallet_type: 'Test Wallet',
+      network: 'devnet',
       address: 'test123...test456',
-      balance: 1.5,
+      connection_time: 1500
     });
     addTestResult('🔗 Wallet connected event sent');
   };
 
   const testButtonClick = () => {
-    trackEvent.buttonClicked('debug_test_button', 'analytics_debug', {
+    analytics.trackEvent('debug_test_button_clicked', {
+      context: 'analytics_debug',
       testNumber: Math.floor(Math.random() * 100),
     });
     addTestResult('🎲 Button click event sent');
   };
 
   const testError = () => {
-    trackEvent.error(new Error('Test error from debug panel'), {
+    analytics.captureError(new Error('Test error from debug panel'), {
       context: 'analytics_debug',
       severity: 'low',
       isTest: true,
@@ -54,25 +51,52 @@ const AnalyticsDebug = () => {
   };
 
   const testToolUsage = () => {
-    trackEvent.toolUsed({
-      tool: 'debug-panel',
-      network: 'solana',
+    analytics.toolUsed({
+      tool_name: 'debug-panel',
       action: 'test_usage',
+      network: 'devnet',
+      success: true,
       duration: 42,
-      itemsProcessed: 10,
+      metadata: {
+        itemsProcessed: 10
+      }
     });
     addTestResult('🛠️ Tool usage event sent');
   };
 
   const testTransaction = () => {
-    trackEvent.transactionInitiated({
-      type: 'test_transaction',
-      network: 'solana',
-      amount: '1.5',
+    analytics.transactionInitiated({
+      type: 'sent',
+      network: 'devnet',
+      amount: 1.5,
       token: 'SOL',
-      recipient: 'test_recipient',
+      to_address: 'test_recipient',
+      status: 'initiated'
     });
     addTestResult('💸 Transaction event sent');
+  };
+
+  const testPerformanceMetric = () => {
+    analytics.performanceMetric({
+      name: 'debug_test_performance',
+      value: Math.random() * 1000,
+      unit: 'ms',
+      metadata: {
+        testType: 'debug'
+      }
+    });
+    addTestResult('📈 Performance metric sent');
+  };
+
+  const testCSVUpload = () => {
+    // Method signature: csvUploaded(p0: string, p1: number, event: CSVEvent)
+    analytics.csvUploaded('test_file.csv', 100, {
+      filename: 'test_file.csv',
+      rows: 100,
+      columns: ['address', 'amount', 'token'],
+      file_size: 2048
+    });
+    addTestResult('📄 CSV upload event sent');
   };
 
   return (
@@ -82,48 +106,58 @@ const AnalyticsDebug = () => {
           <Bug className="h-4 w-4 text-orange-600" />
           <CardTitle className="text-sm text-orange-900">Analytics Debug</CardTitle>
           <Badge variant={isInitialized ? "default" : "destructive"} className="text-xs">
-            {isInitialized ? "Active" : "Inactive"}
+            {isInitialized ? 'Ready' : 'Not Ready'}
           </Badge>
         </div>
         <CardDescription className="text-xs text-orange-700">
-          Development testing panel
+          Development analytics testing panel
         </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-3">
-        {/* Test Buttons */}
         <div className="grid grid-cols-2 gap-2">
-          <Button size="sm" onClick={testPageView} className="text-xs">
-            <Activity className="h-3 w-3 mr-1" />
+          <Button onClick={testPageView} variant="outline" size="sm" className="text-xs p-2 h-8">
+            <Activity className="w-3 h-3 mr-1" />
             Page View
           </Button>
-          <Button size="sm" onClick={testWalletEvent} className="text-xs">
-            <Zap className="h-3 w-3 mr-1" />
-            Wallet
+          
+          <Button onClick={testWalletEvent} variant="outline" size="sm" className="text-xs p-2 h-8">
+            🔗 Wallet
           </Button>
-          <Button size="sm" onClick={testButtonClick} className="text-xs">
-            <Bug className="h-3 w-3 mr-1" />
-            Button
+          
+          <Button onClick={testButtonClick} variant="outline" size="sm" className="text-xs p-2 h-8">
+            <Zap className="w-3 h-3 mr-1" />
+            Click
           </Button>
-          <Button size="sm" onClick={testError} variant="destructive" className="text-xs">
-            <AlertTriangle className="h-3 w-3 mr-1" />
+          
+          <Button onClick={testError} variant="outline" size="sm" className="text-xs p-2 h-8">
+            <AlertTriangle className="w-3 h-3 mr-1" />
             Error
           </Button>
-          <Button size="sm" onClick={testToolUsage} className="text-xs">
-            Tool
+          
+          <Button onClick={testToolUsage} variant="outline" size="sm" className="text-xs p-2 h-8">
+            🛠️ Tool
           </Button>
-          <Button size="sm" onClick={testTransaction} className="text-xs">
-            TX
+          
+          <Button onClick={testTransaction} variant="outline" size="sm" className="text-xs p-2 h-8">
+            💸 TX
+          </Button>
+          
+          <Button onClick={testPerformanceMetric} variant="outline" size="sm" className="text-xs p-2 h-8">
+            📈 Perf
+          </Button>
+          
+          <Button onClick={testCSVUpload} variant="outline" size="sm" className="text-xs p-2 h-8">
+            📄 CSV
           </Button>
         </div>
 
-        {/* Test Results */}
         {testResults.length > 0 && (
-          <div className="border border-orange-200 rounded p-2 bg-white">
-            <div className="text-xs font-medium text-orange-900 mb-1">Recent Events:</div>
-            <div className="space-y-1 max-h-24 overflow-y-auto">
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-orange-900">Recent Tests:</div>
+            <div className="max-h-32 overflow-y-auto space-y-1">
               {testResults.map((result, index) => (
-                <div key={index} className="text-xs text-orange-700 font-mono">
+                <div key={index} className="text-xs text-orange-800 bg-white/50 p-1 rounded border">
                   {result}
                 </div>
               ))}
@@ -131,25 +165,11 @@ const AnalyticsDebug = () => {
           </div>
         )}
 
-        {/* Clear Results */}
         {testResults.length > 0 && (
-          <Button 
-            size="sm" 
-            variant="outline" 
-            onClick={() => setTestResults([])}
-            className="w-full text-xs"
-          >
+          <Button onClick={() => setTestResults([])} variant="ghost" size="sm" className="w-full text-xs h-6">
             Clear Results
           </Button>
         )}
-
-        {/* Instructions */}
-        <div className="text-xs text-orange-600 border border-orange-200 rounded p-2 bg-orange-25">
-          <div className="font-medium mb-1">Check Browser Console:</div>
-          <div>• Open DevTools → Console</div>
-          <div>• Look for PostHog/Sentry events</div>
-          <div>• Verify network requests</div>
-        </div>
       </CardContent>
     </Card>
   );

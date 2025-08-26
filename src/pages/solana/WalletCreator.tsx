@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Wallet, Download, AlertTriangle, Shield, Eye, EyeOff } from 'lucide-react';
+import { Wallet, Download, Shield } from 'lucide-react';
 
 const WalletCreator: React.FC = () => {
   return (

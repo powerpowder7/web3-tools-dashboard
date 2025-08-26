@@ -1,59 +1,86 @@
-import React from 'react'
-import { NavLink } from 'react-router-dom'
-import { ExternalLink } from 'lucide-react'
-
-interface Tool {
-  name: string
-  path: string
-  icon: string
-  description: string
-}
+// src/components/sidebar/ToolItem.tsx - FIXED
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
+import { LucideIcon } from 'lucide-react';
 
 interface ToolItemProps {
-  tool: Tool
-  networkColor: 'solana' | 'ethereum' | 'polygon' | 'bsc'
-  onClick?: () => void
+  name: string;
+  path: string;
+  icon: LucideIcon; // Changed from string to LucideIcon
+  description: string;
+  badge: string | null;
+  onNavigate: (path: string, toolName: string) => void;
 }
 
-export default function ToolItem({ tool, networkColor, onClick }: ToolItemProps) {
-  const getActiveClasses = () => {
-    switch (networkColor) {
-      case 'solana':
-        return 'bg-solana/10 border-solana/30 text-solana'
-      case 'ethereum':
-        return 'bg-ethereum/10 border-ethereum/30 text-ethereum'
-      case 'polygon':
-        return 'bg-polygon/10 border-polygon/30 text-polygon'
-      case 'bsc':
-        return 'bg-bsc/10 border-bsc/30 text-bsc'
-      default:
-        return 'bg-primary/10 border-primary/30 text-primary'
-    }
-  }
+const ToolItem: React.FC<ToolItemProps> = ({
+  name,
+  path,
+  icon: Icon, // Rename to Icon (capitalized) to use as React component
+  description,
+  badge,
+  onNavigate
+}) => {
+  const location = useLocation();
+  const isActive = location.pathname === path;
+  const isDisabled = path === '#';
 
-  return (
-    <NavLink
-      to={tool.path}
-      onClick={onClick}
-      className={({ isActive }) =>
-        `group flex items-center justify-between p-3 rounded-lg border transition-all hover:bg-accent/50 hover:border-accent-foreground/20 ${
-          isActive 
-            ? getActiveClasses()
-            : 'border-transparent hover:border-border'
-        }`
-      }
-    >
-      <div className="flex items-center space-x-3 min-w-0">
-        <span className="text-base flex-shrink-0">{tool.icon}</span>
-        <div className="min-w-0">
-          <div className="font-medium text-sm truncate">{tool.name}</div>
-          <div className="text-xs text-muted-foreground truncate">
-            {tool.description}
+  if (isDisabled) {
+    return (
+      <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 opacity-60">
+        <div className="flex items-center space-x-3">
+          <Icon className="w-4 h-4 text-gray-400" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500 font-medium truncate">
+                {name}
+              </span>
+              {badge && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {badge}
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 truncate">{description}</p>
           </div>
         </div>
       </div>
+    );
+  }
 
-      <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0" />
-    </NavLink>
-  )
-}
+  return (
+    <Link
+      to={path}
+      onClick={() => onNavigate(path, name)}
+      className={`block px-3 py-2 rounded-lg transition-colors ${
+        isActive
+          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+          : 'text-gray-700 hover:bg-gray-100 border border-transparent hover:border-gray-200'
+      }`}
+    >
+      <div className="flex items-center space-x-3">
+        <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-gray-500'}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium truncate">{name}</span>
+            {badge && (
+              <Badge 
+                variant={isActive ? "default" : "secondary"} 
+                className="ml-2 text-xs"
+              >
+                {badge}
+              </Badge>
+            )}
+          </div>
+          <p className={`text-xs truncate ${
+            isActive ? 'text-blue-600' : 'text-gray-500'
+          }`}>
+            {description}
+          </p>
+        </div>
+      </div>
+    </Link>
+  );
+};
+
+export default ToolItem;

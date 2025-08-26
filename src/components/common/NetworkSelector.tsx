@@ -1,167 +1,84 @@
-// src/components/common/NetworkSelector.tsx
-import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+// src/components/common/NetworkSelector.tsx - COMPLETE FILE
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Globe, AlertTriangle, Zap, Wifi } from 'lucide-react';
+import { AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import { useSolanaWallet } from '@/contexts/SolanaWalletContext';
+import analytics from '@/services/analytics';
 
-export default function NetworkSelector() {
-  const { network, switchNetwork, connected } = useSolanaWallet();
+const NetworkSelector = () => {
+  const { network, switchNetwork } = useSolanaWallet();
 
-  const networks = [
-    {
-      id: 'devnet' as const,
-      name: 'Devnet',
-      description: 'Safe testing environment',
-      icon: Zap,
-      badgeVariant: 'secondary' as const,
-      badgeClass: 'bg-green-100 text-green-800 border-green-200',
-      recommended: true,
-      rpcUrl: 'https://api.devnet.solana.com'
-    },
-    {
-      id: 'mainnet-beta' as const,
-      name: 'Mainnet',
-      description: 'Live production network',
-      icon: Globe,
-      badgeVariant: 'destructive' as const,
-      badgeClass: 'bg-red-100 text-red-800 border-red-200',
-      recommended: false,
-      rpcUrl: 'https://api.mainnet-beta.solana.com'
-    }
-  ];
-
-  const currentNetwork = networks.find(net => net.id === network) || networks[0];
-
-  const handleNetworkSwitch = async (networkId: 'devnet' | 'mainnet-beta') => {
-    if (networkId === network) return;
-
-    // Show warning for mainnet
-    if (networkId === 'mainnet-beta') {
-      const confirmed = window.confirm(
-        '⚠️ WARNING: You are switching to Mainnet!\n\n' +
-        'This uses real SOL and tokens. Make sure you know what you\'re doing.\n\n' +
-        'For testing, we recommend staying on Devnet.\n\n' +
-        'Continue to Mainnet?'
-      );
-      
-      if (!confirmed) return;
-    }
-
+  const handleNetworkSwitch = async (newNetwork: 'mainnet-beta' | 'devnet') => {
+    if (network === newNetwork) return;
+    
+    analytics.trackEvent('network_switch_requested', {
+      from: network,
+      to: newNetwork
+    });
+    
     try {
-      await switchNetwork(networkId);
+      await switchNetwork(newNetwork);
     } catch (error) {
-      console.error('Network switch failed:', error);
+      console.error('Failed to switch network:', error);
+      analytics.captureError(error as Error, { context: 'network_switch' });
     }
   };
 
   return (
-    <Card className="w-full">
-      <CardContent className="p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Wifi className="w-4 h-4 text-muted-foreground" />
-            <h3 className="font-semibold text-sm">Network</h3>
-          </div>
-          <Badge 
-            variant={currentNetwork.badgeVariant}
-            className={currentNetwork.badgeClass}
-          >
-            {network === 'mainnet-beta' ? 'LIVE' : 'TEST'}
-          </Badge>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-gray-700">Select Network</span>
+        <Badge variant={network === 'devnet' ? 'default' : 'destructive'} className="text-xs">
+          {network === 'devnet' ? 'Testnet' : 'Mainnet'}
+        </Badge>
+      </div>
 
-        {/* Current Network Display */}
-        <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50 mb-3">
-          <currentNetwork.icon className="w-5 h-5" />
-          <div className="flex-1">
-            <div className="font-medium text-sm">{currentNetwork.name}</div>
-            <div className="text-xs text-muted-foreground">{currentNetwork.description}</div>
-          </div>
-          {connected && (
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          )}
-        </div>
-
-        {/* Network Options */}
-        <div className="space-y-2">
-          {networks.map((net) => {
-            const Icon = net.icon;
-            const isActive = net.id === network;
-            const isMainnet = net.id === 'mainnet-beta';
-            
-            return (
-              <Button
-                key={net.id}
-                variant={isActive ? "default" : "outline"}
-                size="sm"
-                className={`w-full justify-start h-auto p-3 ${
-                  isActive ? 'ring-2 ring-primary/20' : ''
-                } ${isMainnet ? 'border-red-200 hover:border-red-300' : ''}`}
-                onClick={() => handleNetworkSwitch(net.id)}
-                disabled={isActive}
-              >
-                <div className="flex items-center gap-3 w-full">
-                  <Icon className={`w-4 h-4 ${isMainnet ? 'text-red-600' : 'text-green-600'}`} />
-                  <div className="flex-1 text-left">
-                    <div className="font-medium text-sm flex items-center gap-2">
-                      {net.name}
-                      {net.recommended && (
-                        <Badge variant="outline" className="text-xs px-1 py-0 h-4">
-                          Recommended
-                        </Badge>
-                      )}
-                      {isMainnet && (
-                        <AlertTriangle className="w-3 h-3 text-orange-500" />
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground">{net.description}</div>
-                  </div>
-                  {isActive && (
-                    <div className="w-2 h-2 bg-primary rounded-full" />
-                  )}
-                </div>
-              </Button>
-            );
-          })}
-        </div>
-
-        {/* Mainnet Warning */}
-        {network === 'mainnet-beta' && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-              <div className="text-xs text-red-700">
-                <p className="font-medium mb-1">Mainnet Active</p>
-                <p>You're using real SOL and tokens. Exercise extreme caution with all transactions.</p>
-              </div>
+      <div className="space-y-2">
+        {/* Devnet Option */}
+        <Button
+          onClick={() => handleNetworkSwitch('devnet')}
+          variant={network === 'devnet' ? 'default' : 'outline'}
+          className="w-full justify-start h-auto p-4"
+        >
+          <div className="flex items-center space-x-3">
+            <Wifi className="w-4 h-4" />
+            <div className="text-left">
+              <div className="font-medium">Devnet</div>
+              <div className="text-xs text-gray-500">Test network - Safe for development</div>
             </div>
           </div>
-        )}
+        </Button>
 
-        {/* Quick Network Info */}
-        <div className="mt-3 pt-3 border-t text-xs text-muted-foreground space-y-1">
-          <div className="flex justify-between">
-            <span>RPC Endpoint:</span>
-            <span className="font-mono text-xs">
-              {currentNetwork.rpcUrl.split('//')[1]}
-            </span>
+        {/* Mainnet Option */}
+        <Button
+          onClick={() => handleNetworkSwitch('mainnet-beta')}
+          variant={network === 'mainnet-beta' ? 'default' : 'outline'}
+          className="w-full justify-start h-auto p-4"
+        >
+          <div className="flex items-center space-x-3">
+            <WifiOff className="w-4 h-4" />
+            <div className="text-left">
+              <div className="font-medium">Mainnet</div>
+              <div className="text-xs text-gray-500">Live network - Real SOL transactions</div>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span>Status:</span>
-            <span className={`flex items-center gap-1 ${
-              connected ? 'text-green-600' : 'text-gray-500'
-            }`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${
-                connected ? 'bg-green-500' : 'bg-gray-400'
-              }`} />
-              {connected ? 'Connected' : 'Disconnected'}
-            </span>
+        </Button>
+      </div>
+
+      {/* Warning for Mainnet */}
+      {network === 'mainnet-beta' && (
+        <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-orange-700">
+              <p className="font-medium mb-1">Mainnet Active</p>
+              <p>You're connected to Mainnet. Real SOL will be used for transactions.</p>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
-}
+};
+
+export default NetworkSelector;

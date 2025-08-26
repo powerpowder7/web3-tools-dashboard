@@ -1,128 +1,183 @@
-// src/components/common/WalletButton.tsx (Fixed)
-import React from 'react';
+// src/components/common/WalletButton.tsx - REMOVE UNUSED IMPORT
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { Wallet, ChevronDown, Copy, ExternalLink, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Wallet, LogOut, Copy } from 'lucide-react';
 import { useSolanaWallet } from '@/contexts/SolanaWalletContext';
+import analytics from '@/services/analytics';
 
-export default function WalletButton() {
-  const { publicKey, disconnect, connected } = useWallet();
-  const { network, balance } = useSolanaWallet();
+const WalletButton = () => {
+  const { connected, connecting, publicKey, disconnect, wallet } = useWallet();
+  const { balance, network } = useSolanaWallet();
 
-  // Format balance for display
-  const formatBalance = (lamports: number | null): string => {
-    if (lamports === null || lamports === undefined) return '0.0000';
-    return (lamports / 1000000000).toFixed(4);
-  };
-
-  // Copy address to clipboard
-  const copyAddress = async () => {
-    if (!publicKey) return;
-    try {
-      await navigator.clipboard.writeText(publicKey.toString());
-    } catch (error) {
-      console.error('Failed to copy address:', error);
+  const handleCopyAddress = async () => {
+    if (publicKey) {
+      try {
+        await navigator.clipboard.writeText(publicKey.toBase58());
+        analytics.trackEvent('wallet_address_copied', { 
+          network,
+          source: 'wallet_button'
+        });
+        
+        // Simple success feedback
+        alert('Address copied to clipboard!');
+      } catch (error) {
+        console.error('Failed to copy address:', error);
+        analytics.captureError(error as Error, { context: 'copy_address' });
+      }
     }
   };
 
-  // Disconnect wallet
+  const handleViewExplorer = () => {
+    if (publicKey) {
+      const explorerUrl = network === 'devnet' 
+        ? `https://explorer.solana.com/address/${publicKey.toBase58()}?cluster=devnet`
+        : `https://explorer.solana.com/address/${publicKey.toBase58()}`;
+      
+      window.open(explorerUrl, '_blank');
+      analytics.trackEvent('explorer_viewed', { 
+        network,
+        source: 'wallet_button',
+        address_type: 'wallet'
+      });
+    }
+  };
+
   const handleDisconnect = async () => {
     try {
+      analytics.trackEvent('wallet_disconnect_initiated', { 
+        wallet_name: wallet?.adapter?.name,
+        network
+      });
+      
       await disconnect();
+      
+      analytics.trackEvent('wallet_disconnected', { 
+        wallet_name: wallet?.adapter?.name,
+        network
+      });
     } catch (error) {
       console.error('Failed to disconnect wallet:', error);
+      analytics.captureError(error as Error, { context: 'wallet_disconnect' });
     }
   };
 
-  if (!connected || !publicKey) {
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  };
+
+  // Show connecting state
+  if (connecting) {
     return (
-      <div className="wallet-adapter-button-trigger">
-        <WalletMultiButton />
+      <div className="w-full">
+        <Button
+          disabled
+          className="w-full justify-center"
+          variant="outline"
+        >
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+          Connecting...
+        </Button>
       </div>
     );
   }
 
-  return (
-    <div className="flex items-center gap-2">
-      {/* Network Badge */}
-      <Badge 
-        variant="outline" 
-        className={`hidden sm:inline-flex ${
-          network === 'mainnet-beta' 
-            ? 'bg-red-100 text-red-800 border-red-200' 
-            : 'bg-green-100 text-green-800 border-green-200'
-        }`}
-      >
-        {network === 'mainnet-beta' ? 'Mainnet' : 'Devnet'}
-      </Badge>
-
-      {/* Balance Display */}
-      <div className="hidden md:flex items-center gap-1 px-3 py-1.5 bg-slate-100 rounded-md text-sm">
-        <span className="font-medium">{formatBalance(balance)} SOL</span>
-      </div>
-
-      {/* Wallet Info Dropdown */}
-      <div className="relative group">
-        <Button variant="outline" className="flex items-center gap-2 max-w-[200px]">
-          <Wallet className="w-4 h-4" />
-          <span className="truncate">
-            {publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}
-          </span>
-        </Button>
-
-        {/* Dropdown Menu */}
-        <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-          <div className="p-3 space-y-3">
-            {/* Full Address */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">Wallet Address</label>
-              <div className="flex items-center gap-2">
-                <div className="font-mono text-xs bg-slate-50 p-2 rounded flex-1 truncate">
-                  {publicKey.toString()}
-                </div>
-                <Button size="sm" variant="ghost" onClick={copyAddress} className="h-8 w-8 p-0">
-                  <Copy className="w-3 h-3" />
-                </Button>
-              </div>
+  // Show connected state with details
+  if (connected && publicKey) {
+    return (
+      <div className="w-full space-y-2">
+        {/* Main wallet button */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <Wallet className="w-4 h-4 text-green-600" />
+              <span className="font-medium text-green-800">
+                {formatAddress(publicKey.toBase58())}
+              </span>
             </div>
+            <ChevronDown className="w-4 h-4 text-green-600" />
+          </div>
 
-            {/* Balance */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">Balance</label>
-              <div className="text-lg font-semibold">
-                {formatBalance(balance)} SOL
-              </div>
+          {/* Wallet Info */}
+          <div className="space-y-2 mb-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-600">Wallet</span>
+              <span className="font-medium">{wallet?.adapter?.name || 'Unknown'}</span>
             </div>
-
-            {/* Network */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">Network</label>
-              <Badge 
-                variant="outline" 
-                className={`w-fit ${
-                  network === 'mainnet-beta' 
-                    ? 'bg-red-100 text-red-800 border-red-200' 
-                    : 'bg-green-100 text-green-800 border-green-200'
-                }`}
-              >
-                {network === 'mainnet-beta' ? 'Mainnet' : 'Devnet'}
-              </Badge>
+            
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-600">Balance</span>
+              <span className="font-medium">
+                {typeof balance === 'number' ? `${balance.toFixed(4)} SOL` : 'Loading...'}
+              </span>
             </div>
+          </div>
 
-            {/* Disconnect Button */}
-            <Button 
-              variant="outline" 
-              onClick={handleDisconnect}
-              className="w-full text-red-600 border-red-200 hover:bg-red-50"
+          {/* Action buttons */}
+          <div className="grid grid-cols-3 gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyAddress}
+              className="text-xs p-2"
             >
-              <LogOut className="w-4 h-4 mr-2" />
+              <Copy className="w-3 h-3 mr-1" />
+              Copy
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleViewExplorer}
+              className="text-xs p-2"
+            >
+              <ExternalLink className="w-3 h-3 mr-1" />
+              Explorer
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDisconnect}
+              className="text-xs p-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <LogOut className="w-3 h-3 mr-1" />
               Disconnect
             </Button>
           </div>
         </div>
+
+        {/* Network indicator */}
+        <div className="flex items-center justify-center">
+          <Badge 
+            variant={network === 'devnet' ? 'default' : 'destructive'} 
+            className="text-xs"
+          >
+            {network === 'devnet' ? 'Devnet' : 'Mainnet'}
+          </Badge>
+        </div>
       </div>
+    );
+  }
+
+  // Show connect button (default state)
+  return (
+    <div className="w-full">
+      <WalletMultiButton
+        style={{
+          backgroundColor: '#3b82f6',
+          height: '40px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500',
+          width: '100%',
+          justifyContent: 'center',
+        }}
+      />
     </div>
   );
-}
+};
+
+export default WalletButton;

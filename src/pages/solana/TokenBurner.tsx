@@ -3,8 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Flame, AlertTriangle, Info, Trash2, Search } from 'lucide-react';
-
+import { Flame, AlertTriangle, Info, Search } from 'lucide-react';
 const TokenBurner: React.FC = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">

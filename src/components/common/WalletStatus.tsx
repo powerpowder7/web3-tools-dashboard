@@ -1,239 +1,161 @@
-// src/components/common/WalletStatus.tsx (Fixed)
+// src/components/common/WalletStatus.tsx - PROPERTY FIXES ONLY
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Copy, ExternalLink, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  Wallet, 
-  Copy, 
-  ExternalLink, 
-  RefreshCw, 
-  AlertCircle,
-  TrendingUp,
-  Coins
-} from 'lucide-react';
 import { useSolanaWallet } from '@/contexts/SolanaWalletContext';
+import analytics from '@/services/analytics';
 
-export default function WalletStatus() {
+const WalletStatus: React.FC = () => {
   const { 
     connected, 
     publicKey, 
     balance, 
-    tokens = [], // Default to empty array
-    network,
+    network, 
     refreshBalance,
-    isLoading
+    tokenAccounts, // Change from 'tokens' to 'tokenAccounts'
+    // Remove 'isLoading' - not in your context interface
   } = useSolanaWallet();
 
-  // Format balance for display
-  const formatBalance = (lamports: number | null): string => {
-    if (lamports === null || lamports === undefined) return '0.0000';
-    return (lamports / 1000000000).toFixed(4); // Convert lamports to SOL
-  };
-
-  // Copy address to clipboard
-  const copyAddress = async () => {
-    if (!publicKey) return;
-    try {
-      await navigator.clipboard.writeText(publicKey.toString());
-      // You could add a toast notification here
-      console.log('Address copied to clipboard');
-    } catch (error) {
-      console.error('Failed to copy address:', error);
+  const handleCopyAddress = async () => {
+    if (publicKey) {
+      try {
+        await navigator.clipboard.writeText(publicKey.toBase58());
+        analytics.trackEvent('wallet_address_copied', { network });
+      } catch (error) {
+        console.error('Failed to copy address:', error);
+      }
     }
   };
 
-  // Open in Solana Explorer
-  const openInExplorer = () => {
-    if (!publicKey) return;
-    const baseUrl = network === 'mainnet-beta' 
-      ? 'https://explorer.solana.com' 
-      : 'https://explorer.solana.com?cluster=devnet';
-    window.open(`${baseUrl}/address/${publicKey.toString()}`, '_blank');
+  const handleRefreshBalance = () => {
+    refreshBalance();
+    analytics.trackEvent('balance_refresh_manual', { network });
   };
 
-  // Refresh wallet data
-  const handleRefresh = async () => {
-    if (!connected) return;
-    try {
-      await refreshBalance();
-    } catch (error) {
-      console.error('Failed to refresh wallet data:', error);
+  const handleViewExplorer = () => {
+    if (publicKey) {
+      const explorerUrl = network === 'devnet' 
+        ? `https://explorer.solana.com/address/${publicKey.toBase58()}?cluster=devnet`
+        : `https://explorer.solana.com/address/${publicKey.toBase58()}`;
+      
+      window.open(explorerUrl, '_blank');
+      analytics.trackEvent('explorer_viewed', { 
+        network,
+        address_type: 'wallet'
+      });
     }
   };
 
-  if (!connected) {
+  if (!connected || !publicKey) {
     return (
-      <Card className="w-full">
-        <CardContent className="p-4">
-          <div className="flex flex-col items-center justify-center py-6 text-center">
-            <Wallet className="w-12 h-12 text-muted-foreground mb-3" />
-            <h3 className="font-semibold text-sm mb-2">Wallet Not Connected</h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Connect your wallet to see balance and transaction history
-            </p>
-            <Button size="sm" variant="outline" disabled>
-              <Wallet className="w-4 h-4 mr-2" />
-              Connect Wallet
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center py-6">
+        <div className="text-gray-500 text-sm mb-2">Wallet not connected</div>
+        <div className="text-xs text-gray-400">Connect your wallet to view status</div>
+      </div>
     );
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <Wallet className="w-4 h-4" />
-            <span>Wallet Status</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1" />
-              Connected
-            </Badge>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="h-6 w-6 p-0"
-            >
-              <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="pt-0 space-y-4">
-        {/* Address Section */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Address</span>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={copyAddress}
-                className="h-6 px-2"
-              >
-                <Copy className="w-3 h-3" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={openInExplorer}
-                className="h-6 px-2"
-              >
-                <ExternalLink className="w-3 h-3" />
-              </Button>
-            </div>
-          </div>
-          <div className="font-mono text-xs bg-muted/50 p-2 rounded border break-all">
-            {publicKey?.toString() || 'Not available'}
-          </div>
+    <div className="space-y-4">
+      {/* Wallet Address */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-700">Wallet Address</label>
+          <Badge variant={network === 'devnet' ? 'default' : 'destructive'} className="text-xs">
+            {network === 'devnet' ? 'Devnet' : 'Mainnet'}
+          </Badge>
         </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 px-3 py-2 bg-gray-50 border rounded-lg text-sm font-mono text-gray-600 truncate">
+            {publicKey.toBase58()}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyAddress}
+            className="shrink-0"
+          >
+            <Copy className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
 
-        {/* Balance Section */}
-        <div className="space-y-2">
+      {/* Balance Information */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-700">SOL Balance</label>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefreshBalance}
+            className="p-1 h-auto"
+          >
+            <RefreshCw className="w-3 h-3" />
+          </Button>
+        </div>
+        
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">SOL Balance</span>
-            <Badge variant="outline" className="text-xs">
-              {network === 'mainnet-beta' ? 'Mainnet' : 'Devnet'}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="text-2xl font-bold">
-              {isLoading ? '...' : formatBalance(balance)}
-            </div>
-            <div className="text-sm text-muted-foreground">SOL</div>
-            {balance !== null && balance > 0 && (
-              <TrendingUp className="w-4 h-4 text-green-500" />
-            )}
-          </div>
-          {(balance === 0 || balance === null) && network === 'devnet' && (
-            <div className="flex items-start gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-              <AlertCircle className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-blue-700">
-                <p className="font-medium">Need Devnet SOL?</p>
-                <p>Visit the Solana faucet to get free devnet tokens for testing.</p>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">
+                {balance !== null ? balance.toFixed(4) : '-.----'}
+                <span className="text-lg font-medium text-gray-600 ml-1">SOL</span>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Token Holdings Section */}
-        {tokens && tokens.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Coins className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">Token Holdings</span>
-              <Badge variant="secondary" className="text-xs">{tokens.length}</Badge>
-            </div>
-            <div className="space-y-1 max-h-32 overflow-y-auto">
-              {tokens.slice(0, 5).map((token, index) => (
-                <div key={index} className="flex items-center justify-between p-2 rounded bg-muted/30 text-xs">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">
-                      {token.symbol || 'Unknown Token'}
-                    </div>
-                    <div className="text-muted-foreground font-mono text-xs truncate">
-                      {token.mint?.slice(0, 8)}...{token.mint?.slice(-4)}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-medium">
-                      {token.balance || '0.00'}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {tokens.length > 5 && (
-                <div className="text-center text-xs text-muted-foreground py-1">
-                  +{tokens.length - 5} more tokens
+              {balance !== null && (
+                <div className="text-xs text-gray-500 mt-1">
+                  ≈ ${(balance * 20).toFixed(2)} USD
                 </div>
               )}
             </div>
+            <div className="text-right">
+              <div className="text-xs text-gray-500">Network</div>
+              <div className="text-sm font-medium text-gray-700 capitalize">
+                {network}
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* Quick Actions */}
-        <div className="flex gap-2 pt-2 border-t">
+      {/* Token Accounts */}
+      {tokenAccounts && tokenAccounts.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Token Accounts</label>
+          <div className="bg-gray-50 p-3 rounded-lg border">
+            <div className="text-sm text-gray-600">
+              {tokenAccounts.length} token account{tokenAccounts.length !== 1 ? 's' : ''} found
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      <div className="pt-3 border-t">
+        <div className="flex gap-2">
           <Button
-            size="sm"
             variant="outline"
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="flex-1"
-          >
-            <RefreshCw className={`w-3 h-3 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button
             size="sm"
-            variant="outline"
-            onClick={openInExplorer}
-            className="flex-1"
+            onClick={handleViewExplorer}
+            className="flex-1 text-xs"
           >
             <ExternalLink className="w-3 h-3 mr-1" />
             Explorer
           </Button>
         </div>
+      </div>
 
-        {/* Network Warning */}
-        {network === 'mainnet-beta' && (
-          <div className="flex items-start gap-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
-            <AlertCircle className="w-3 h-3 text-red-600 mt-0.5 flex-shrink-0" />
-            <div className="text-red-700">
-              <p className="font-medium">Mainnet Warning</p>
-              <p>You're viewing a live wallet. All transactions use real SOL.</p>
-            </div>
+      {/* Network Warning for Mainnet */}
+      {network === 'mainnet-beta' && (
+        <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg">
+          <div className="text-xs font-medium text-orange-800 mb-1">⚠️ Mainnet Warning</div>
+          <div className="text-xs text-orange-700">
+            You're connected to Mainnet. Real SOL will be used for transactions.
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   );
-}
+};
+
+export default WalletStatus;

@@ -1,56 +1,72 @@
-import React, { createContext, useContext, useEffect } from 'react'
-import { SolanaWalletProvider } from './SolanaWalletContext'
-import { analytics } from '../services/analytics'
+// src/contexts/WalletProvider.tsx - REMOVE INVALID PROPS
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { clusterApiUrl } from '@solana/web3.js';
+import { useMemo, ReactNode, useEffect } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
+import analytics from '../services/analytics';
 
-interface WalletContextType {
-  // Will be expanded as we add more networks
-  currentNetwork: 'solana' | 'ethereum' | 'polygon' | 'bsc'
-  switchNetwork: (network: 'solana' | 'ethereum' | 'polygon' | 'bsc') => void
-}
-
-const WalletContext = createContext<WalletContextType>({
-  currentNetwork: 'solana',
-  switchNetwork: () => {}
-})
-
-export function useWallet() {
-  return useContext(WalletContext)
-}
+// Import wallet adapter CSS
+import '@solana/wallet-adapter-react-ui/styles.css';
 
 interface WalletProviderProps {
-  children: React.ReactNode
+  children: ReactNode;
 }
 
-export function WalletProvider({ children }: WalletProviderProps) {
-  const [currentNetwork, setCurrentNetwork] = React.useState<'solana' | 'ethereum' | 'polygon' | 'bsc'>('solana')
-
-  const switchNetwork = (network: 'solana' | 'ethereum' | 'polygon' | 'bsc') => {
-    setCurrentNetwork(network)
-    analytics.track('network_switched', { 
-      from: currentNetwork, 
-      to: network 
-    })
-  }
+// Analytics wrapper component
+function WalletAnalytics({ children }: { children: ReactNode }) {
+  const { publicKey, connected } = useWallet();
 
   useEffect(() => {
-    // Track initial network
-    analytics.track('wallet_provider_initialized', {
-      network: currentNetwork
-    })
-  }, [])
+    if (connected && publicKey) {
+      analytics.walletConnected({
+        wallet_type: 'unknown',
+        network: 'devnet',
+        address: publicKey.toBase58(),
+      });
+    } else if (!connected) {
+      analytics.walletDisconnected('unknown');
+    }
+  }, [connected, publicKey]);
 
-  const contextValue: WalletContextType = {
-    currentNetwork,
-    switchNetwork
-  }
+  return <>{children}</>;
+}
 
-  // For Phase 1, we only wrap with Solana provider
-  // In Phase 2, we'll add conditional rendering based on currentNetwork
+export default function CustomWalletProvider({ children }: WalletProviderProps) {
+  // Network can be set to 'devnet', 'testnet', or 'mainnet-beta'
+  const network = WalletAdapterNetwork.Devnet;
+
+  // RPC endpoint
+  const endpoint = useMemo(() => {
+    if (network === WalletAdapterNetwork.Devnet) {
+      return import.meta.env.VITE_HELIUS_RPC_URL_DEVNET || clusterApiUrl(network);
+    }
+    return import.meta.env.VITE_HELIUS_RPC_URL_MAINNET || clusterApiUrl(network);
+  }, [network]);
+
+  // Wallet adapters
+  const wallets = useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter({ network }),
+    ],
+    [network]
+  );
+
   return (
-    <WalletContext.Provider value={contextValue}>
-      <SolanaWalletProvider>
-        {children}
-      </SolanaWalletProvider>
-    </WalletContext.Provider>
-  )
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider 
+        wallets={wallets} 
+        autoConnect={false}
+      >
+        <WalletModalProvider>
+          <WalletAnalytics>
+            {children}
+          </WalletAnalytics>
+        </WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
+  );
 }

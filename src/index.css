@@ -13,17 +13,17 @@
     --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 222.2 84% 4.9%;
     --muted: 210 40% 96%;
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent-foreground: 222.2 84% 4.9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
-    --radius: 0.75rem;
+    --radius: 0.5rem;
   }
 
   .dark {
@@ -34,7 +34,7 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
     --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-foreground: 222.2 84% 4.9%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -45,7 +45,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --ring: 224.3 76.3% 94.1%;
   }
 }
 
@@ -55,91 +55,67 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-@layer components {
-  /* Network specific styles */
-  .network-solana {
-    @apply bg-gradient-to-r from-solana to-solana-light;
-  }
-  
-  .network-ethereum {
-    @apply bg-gradient-to-r from-ethereum to-ethereum-light;
-  }
-  
-  .network-polygon {
-    @apply bg-gradient-to-r from-polygon to-polygon-light;
-  }
-  
-  .network-bsc {
-    @apply bg-gradient-to-r from-bsc to-bsc-light;
-  }
-
-  /* Loading animations */
-  .loading-dots {
-    @apply inline-flex space-x-1;
-  }
-  
+/* Custom loading animations */
+@layer utilities {
   .loading-dot {
-    @apply w-2 h-2 bg-current rounded-full animate-pulse-dot;
+    @apply w-2 h-2 bg-current rounded-full animate-pulse;
   }
   
-  .loading-dot:nth-child(2) {
-    animation-delay: 0.2s;
+  .loading-dots {
+    @apply flex space-x-1;
   }
   
-  .loading-dot:nth-child(3) {
-    animation-delay: 0.4s;
+  .loading-dots .loading-dot:nth-child(1) {
+    animation-delay: 0ms;
+  }
+  
+  .loading-dots .loading-dot:nth-child(2) {
+    animation-delay: 150ms;
+  }
+  
+  .loading-dots .loading-dot:nth-child(3) {
+    animation-delay: 300ms;
   }
 
-  /* Wallet connection styles */
-  .wallet-connected {
-    @apply bg-green-50 border-green-200 text-green-800;
-  }
-  
-  .wallet-disconnected {
-    @apply bg-gray-50 border-gray-200 text-gray-600;
-  }
-  
+  /* Wallet connection animations */
   .wallet-connecting {
-    @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+    @apply animate-pulse;
+  }
+  
+  .wallet-connected {
+    @apply animate-none;
   }
 
-  /* Transaction status styles */
-  .tx-pending {
-    @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+  /* Custom pulse animation for status indicators */
+  .status-pulse {
+    animation: status-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
   
-  .tx-success {
-    @apply bg-green-50 border-green-200 text-green-800;
-  }
-  
-  .tx-failed {
-    @apply bg-red-50 border-red-200 text-red-800;
+  @keyframes status-pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: .5;
+    }
   }
 
-  /* Custom scrollbar */
-  .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(155, 155, 155, 0.3) transparent;
+  /* Custom fade in animation */
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
   }
   
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgba(155, 155, 155, 0.3);
-    border-radius: 3px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(155, 155, 155, 0.5);
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }

@@ -1,117 +1,76 @@
-import React, { useState } from 'react'
-import { ChevronDown, ChevronRight, Clock } from 'lucide-react'
-import { Badge } from '../ui/badge'
-import ToolItem from './ToolItem'
+// src/components/sidebar/NetworkSection.tsx - FIXED
+import React from 'react';
+import { ChevronDown, LucideIcon } from 'lucide-react';
+import ToolItem from './ToolItem';
 
+// Updated Tool interface to support LucideIcon components
 interface Tool {
-  name: string
-  path: string
-  icon: string
-  description: string
+  name: string;
+  path: string;
+  icon: LucideIcon; // Changed from string to LucideIcon
+  description: string;
+  badge: string | null;
 }
 
 interface NetworkSectionProps {
-  name: string
-  icon: string
-  color: 'solana' | 'ethereum' | 'polygon' | 'bsc'
-  tools: Tool[]
-  defaultOpen?: boolean
-  comingSoon?: boolean
-  onItemClick?: () => void
+  title: string;
+  network: string;
+  tools: Tool[];
+  onNavigate: (path: string, toolName: string) => void;
 }
 
-export default function NetworkSection({
-  name,
-  icon,
-  color,
+const NetworkSection: React.FC<NetworkSectionProps> = ({
+  title,
+  network,
   tools,
-  defaultOpen = false,
-  comingSoon = false,
-  onItemClick
-}: NetworkSectionProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
+  onNavigate
+}) => {
+  const [isExpanded, setIsExpanded] = React.useState(true);
 
-  const getColorClasses = () => {
-    switch (color) {
+  const getNetworkColor = (network: string) => {
+    switch (network) {
       case 'solana':
-        return 'text-solana border-solana/20 bg-solana/5'
+        return 'text-purple-600 bg-purple-50 border-purple-200';
       case 'ethereum':
-        return 'text-ethereum border-ethereum/20 bg-ethereum/5'
-      case 'polygon':
-        return 'text-polygon border-polygon/20 bg-polygon/5'
-      case 'bsc':
-        return 'text-bsc border-bsc/20 bg-bsc/5'
+        return 'text-blue-600 bg-blue-50 border-blue-200';
       default:
-        return 'text-muted-foreground'
+        return 'text-gray-600 bg-gray-50 border-gray-200';
     }
-  }
+  };
 
   return (
-    <div className="space-y-2">
+    <div className="mb-6">
       {/* Section Header */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors hover:bg-accent/50 ${getColorClasses()}`}
-        disabled={comingSoon}
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-colors ${getNetworkColor(network)}`}
       >
-        <div className="flex items-center space-x-3">
-          <span className="text-lg">{icon}</span>
-          <div className="text-left">
-            <div className="font-medium">{name}</div>
-            <div className="text-xs opacity-75">
-              {comingSoon ? 'Phase 2' : `${tools.length} tools`}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          {comingSoon && (
-            <Badge variant="outline" className="text-xs">
-              <Clock className="w-3 h-3 mr-1" />
-              Soon
-            </Badge>
-          )}
-          
-          {tools.length > 0 && (
-            <>
-              {isOpen ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </>
-          )}
-        </div>
+        <span className="font-medium text-sm">{title}</span>
+        <ChevronDown
+          className={`w-4 h-4 transition-transform ${
+            isExpanded ? 'rotate-180' : ''
+          }`}
+        />
       </button>
 
       {/* Tools List */}
-      {isOpen && tools.length > 0 && (
-        <div className="space-y-1 pl-4">
+      {isExpanded && (
+        <div className="mt-2 space-y-1">
           {tools.map((tool) => (
             <ToolItem
-              key={tool.path}
-              tool={tool}
-              networkColor={color}
-              onClick={onItemClick}
+              key={tool.name}
+              name={tool.name}
+              path={tool.path}
+              icon={tool.icon} // Now passes the LucideIcon component
+              description={tool.description}
+              badge={tool.badge}
+              onNavigate={onNavigate}
             />
           ))}
         </div>
       )}
-
-      {/* Coming Soon Message */}
-      {isOpen && comingSoon && (
-        <div className="pl-4">
-          <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center space-x-2 mb-1">
-              <Clock className="w-4 h-4" />
-              <span className="font-medium">Coming Soon</span>
-            </div>
-            <div className="text-xs">
-              {name} tools will be available in Phase 2 of development.
-            </div>
-          </div>
-        </div>
-      )}
     </div>
-  )
-}
+  );
+};
+
+export default NetworkSection;

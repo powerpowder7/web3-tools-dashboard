@@ -1,35 +1,56 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    nodePolyfills({
+      // Enable polyfills for specific globals and modules
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+      // Enable polyfills for specific modules
+      protocolImports: true,
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      'buffer': 'buffer'
-    }
+    },
   },
   define: {
     global: 'globalThis',
-    'process.env': {}
-  },
-  optimizeDeps: {
-    include: ['buffer']
+    'process.env': {},
   },
   server: {
-    port: 3000,
-    open: true
+    host: true,
+    port: 3001,
+  },
+  optimizeDeps: {
+    include: [
+      '@solana/web3.js',
+      '@solana/wallet-adapter-base',
+      '@solana/wallet-adapter-react',
+      '@solana/wallet-adapter-react-ui',
+      '@solana/spl-token',
+      'buffer',
+      'process',
+      'events'
+    ]
   },
   build: {
+    target: 'esnext',
     rollupOptions: {
-      external: [],
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          solana: ['@solana/web3.js', '@solana/wallet-adapter-react'],
-          ui: ['lucide-react', '@radix-ui/react-slot']
+          solana: ['@solana/web3.js', '@solana/wallet-adapter-base', '@solana/wallet-adapter-react'],
+          polyfills: ['buffer', 'process', 'events']
         }
       }
     }

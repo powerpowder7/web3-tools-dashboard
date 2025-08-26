@@ -2,10 +2,10 @@
 export default {
   darkMode: ["class"],
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
   ],
   prefix: "",
   theme: {
@@ -51,27 +51,6 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Network specific colors
-        solana: {
-          DEFAULT: "#9945FF",
-          light: "#B865FF",
-          dark: "#7A2FCC"
-        },
-        ethereum: {
-          DEFAULT: "#F0C45E",
-          light: "#F3D17A",
-          dark: "#D4A73C"
-        },
-        polygon: {
-          DEFAULT: "#8247E5",
-          light: "#9B68E8",
-          dark: "#6A2FC2"
-        },
-        bsc: {
-          DEFAULT: "#F0B90B",
-          light: "#F2C94C",
-          dark: "#D4A00A"
-        }
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -87,17 +66,22 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "pulse-dot": {
-          "0%, 100%": { opacity: "0.4" },
-          "50%": { opacity: "1" }
-        }
+        "status-pulse": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.5" },
+        },
+        "fadeIn": {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-dot": "pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite"
+        "status-pulse": "status-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "fadeIn": "fadeIn 0.3s ease-in-out",
       },
     },
   },
-  plugins: [require("@tailwindcss/forms")],
+  plugins: [require("tailwindcss-animate")],
 }

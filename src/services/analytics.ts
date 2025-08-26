@@ -1,4 +1,4 @@
-// src/services/analytics.ts
+// src/services/analytics.ts - FINAL VERSION WITH ALL FIXES
 import { track } from '@vercel/analytics';
 import * as Sentry from '@sentry/react';
 
@@ -53,6 +53,24 @@ interface ToolUsageEvent {
   metadata?: Record<string, any>;
 }
 
+interface BatchOperationEvent {
+  operation_type: 'multi_send' | 'wallet_creation' | 'token_creation';
+  batch_size: number;
+  success_count: number;
+  failure_count: number;
+  total_amount?: number;
+  duration: number;
+  network: string;
+}
+
+interface CSVEvent {
+  filename: string;
+  rows: number;
+  columns: string[];
+  file_size: number;
+  processing_time?: number;
+}
+
 // Analytics service class
 class AnalyticsService {
   private isEnabled = false;
@@ -61,7 +79,7 @@ class AnalyticsService {
     this.isEnabled = import.meta.env.PROD || import.meta.env.VITE_ENABLE_ANALYTICS === 'true';
   }
 
-  // Core tracking method with Vercel Analytics compatibility
+  // Core tracking method with proper Vercel Analytics type safety
   private safeTrack(event: string, properties: Record<string, any> = {}) {
     if (!this.isEnabled) return;
 
@@ -90,12 +108,17 @@ class AnalyticsService {
     }
   }
 
-  // Track events
-  trackEvent(event: string, properties?: Record<string, any>) {
+  // Main tracking method
+  track(event: string, properties?: Record<string, any>) {
     this.safeTrack(event, {
       timestamp: Date.now(),
       ...properties
     });
+  }
+
+  // Track events (alias for track)
+  trackEvent(event: string, properties?: Record<string, any>) {
+    this.track(event, properties);
   }
 
   // Performance metrics
@@ -112,8 +135,8 @@ class AnalyticsService {
   pageView(path: string, title?: string) {
     this.safeTrack('page_view', {
       page_path: path,
-      page_title: title || document.title,
-      user_agent: navigator.userAgent,
+      page_title: title || (typeof document !== 'undefined' ? document.title : ''),
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
       timestamp: Date.now()
     });
   }
@@ -172,24 +195,87 @@ class AnalyticsService {
     });
   }
 
+  // Batch operations
+  batchOperationCompleted(event: BatchOperationEvent) {
+    this.safeTrack('batch_operation_completed', {
+      operation_type: event.operation_type,
+      batch_size: event.batch_size.toString(),
+      success_count: event.success_count.toString(),
+      failure_count: event.failure_count.toString(),
+      total_amount: event.total_amount?.toString(),
+      duration: event.duration.toString(),
+      network: event.network,
+      success_rate: ((event.success_count / event.batch_size) * 100).toFixed(1)
+    });
+  }
+
   // CSV operations
-  csvUploaded(filename: string, rows: number) {
+  csvUploaded(event: CSVEvent) {
     this.safeTrack('csv_uploaded', {
-      filename,
-      row_count: rows.toString()
+      filename: event.filename,
+      row_count: event.rows.toString(),
+      column_count: event.columns.length.toString(),
+      columns: event.columns.join(','),
+      file_size: event.file_size.toString(),
+      processing_time: event.processing_time?.toString()
+    });
+  }
+
+  csvProcessed(rows: number, valid: number, invalid: number) {
+    this.safeTrack('csv_processed', {
+      total_rows: rows.toString(),
+      valid_rows: valid.toString(),
+      invalid_rows: invalid.toString(),
+      validation_rate: ((valid / rows) * 100).toFixed(1)
+    });
+  }
+
+  // Search and discovery
+  searchPerformed(query: string, results: number, tool?: string) {
+    this.safeTrack('search_performed', {
+      query_length: query.length.toString(),
+      result_count: results.toString(),
+      tool_context: tool
+    });
+  }
+
+  helpAccessed(section: string, tool: string) {
+    this.safeTrack('help_accessed', {
+      help_section: section,
+      tool_name: tool
+    });
+  }
+
+  // User engagement
+  timeSpentOnTool(tool: string, duration: number) {
+    this.safeTrack('tool_time_spent', {
+      tool_name: tool,
+      duration: duration.toString(),
+      engagement_level: duration > 300000 ? 'high' : duration > 60000 ? 'medium' : 'low'
+    });
+  }
+
+  featureUsed(feature: string, tool: string, context?: Record<string, any>) {
+    this.safeTrack('feature_used', {
+      feature_name: feature,
+      tool_name: tool,
+      ...context
     });
   }
 
   // Error tracking
   captureError(error: Error, context?: Record<string, any>) {
     if (this.isEnabled) {
+      // Send to Sentry
       Sentry.captureException(error, {
         extra: context
       });
       
+      // Track in analytics
       this.safeTrack('error_occurred', {
         error_message: error.message,
         error_stack: error.stack?.substring(0, 200),
+        error_name: error.name,
         ...context
       });
     }
@@ -222,6 +308,21 @@ class AnalyticsService {
     
     return false;
   }
+
+  // A/B testing
+  getFeatureFlag(flag: string): string | boolean | undefined {
+    if (!this.isEnabled) return undefined;
+    
+    try {
+      if (posthog?.getFeatureFlag) {
+        return posthog.getFeatureFlag(flag);
+      }
+    } catch (error) {
+      console.warn('Feature flag retrieval failed:', error);
+    }
+    
+    return undefined;
+  }
 }
 
 // Create and export default instance
@@ -238,5 +339,9 @@ export const transactionInitiated = analytics.transactionInitiated.bind(analytic
 export const transactionConfirmed = analytics.transactionConfirmed.bind(analytics);
 export const transactionFailed = analytics.transactionFailed.bind(analytics);
 export const toolUsed = analytics.toolUsed.bind(analytics);
+export const batchOperationCompleted = analytics.batchOperationCompleted.bind(analytics);
 export const csvUploaded = analytics.csvUploaded.bind(analytics);
+export const csvProcessed = analytics.csvProcessed.bind(analytics);
 export const captureError = analytics.captureError.bind(analytics);
+export const identify = analytics.identify.bind(analytics);
+export const isFeatureEnabled = analytics.isFeatureEnabled.bind(analytics);

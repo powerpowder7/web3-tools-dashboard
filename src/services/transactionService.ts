@@ -1,418 +1,316 @@
-// src/services/transactionService.ts - Real Solana Transaction Execution
 import { 
   Connection, 
   PublicKey, 
   Transaction, 
   SystemProgram, 
   LAMPORTS_PER_SOL,
-  SendTransactionError,
-  VersionedTransaction
+  TransactionSignature,
+  sendAndConfirmTransaction,
+  Keypair
 } from '@solana/web3.js';
 import { 
-  getAssociatedTokenAddress, 
-  createTransferInstruction, 
+  createTransferInstruction,
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  getAccount,
   TOKEN_PROGRAM_ID,
-  getAccount
+  ASSOCIATED_TOKEN_PROGRAM_ID
 } from '@solana/spl-token';
-import { WalletContextState } from '@solana/wallet-adapter-react';
-import analytics from './analytics';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { analytics } from '@/services/analytics';
 
-export interface TransactionRecipient {
+export interface TransactionResult {
+  signature: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface Recipient {
   address: string;
   amount: number;
-  tokenMint?: string; // For SPL token transfers
+  isValid: boolean;
 }
 
 export interface BatchTransactionOptions {
-  connection: Connection;
-  wallet: WalletContextState;
-  recipients: TransactionRecipient[];
-  network: 'mainnet-beta' | 'devnet';
-  onProgress?: (completed: number, total: number, signature?: string) => void;
-  onError?: (error: Error, recipientIndex: number) => void;
+  recipients: Recipient[];
+  tokenMint?: string;
+  simulate?: boolean;
+  priorityFee?: number;
 }
 
-export interface TransactionResult {
-  success: boolean;
-  signature?: string;
-  error?: string;
-  recipientAddress: string;
-  amount: number;
-}
+// Transaction service class
+export class TransactionService {
+  private connection: Connection;
+  private wallet: any;
 
-class TransactionService {
-  
-  /**
-   * Execute batch SOL transfers
-   */
-  async executeBatchSOLTransfer(options: BatchTransactionOptions): Promise<TransactionResult[]> {
-    const { connection, wallet, recipients, network, onProgress, onError } = options;
-    const results: TransactionResult[] = [];
-    
-    if (!wallet.publicKey || !wallet.signTransaction) {
-      throw new Error('Wallet not connected or does not support signing');
-    }
-
-    analytics.transactionInitiated('batch_sol_transfer', {
-      recipients: recipients.length,
-      total_amount: recipients.reduce((sum, r) => sum + r.amount, 0),
-      network
-    });
-
-    // Process in smaller batches for better success rates
-    const batchSize = this.getOptimalBatchSize(recipients.length);
-    const chunks = this.chunkArray(recipients, batchSize);
-    
-    for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
-      const chunk = chunks[chunkIndex];
-      
-      try {
-        // Create transaction for this chunk
-        const transaction = new Transaction();
-        
-        // Add transfer instructions
-        chunk.forEach(recipient => {
-          const instruction = SystemProgram.transfer({
-            fromPubkey: wallet.publicKey!,
-            toPubkey: new PublicKey(recipient.address),
-            lamports: Math.floor(recipient.amount * LAMPORTS_PER_SOL)
-          });
-          transaction.add(instruction);
-        });
-        
-        // Get latest blockhash
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = wallet.publicKey;
-        
-        // Sign transaction
-        const signedTransaction = await wallet.signTransaction(transaction);
-        
-        // Send transaction with confirmation
-        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed'
-        });
-        
-        // Wait for confirmation
-        const confirmation = await connection.confirmTransaction({
-          signature,
-          blockhash,
-          lastValidBlockHeight
-        }, 'confirmed');
-        
-        if (confirmation.value.err) {
-          throw new Error(`Transaction failed: ${confirmation.value.err}`);
-        }
-        
-        // Mark all recipients in this chunk as successful
-        chunk.forEach(recipient => {
-          results.push({
-            success: true,
-            signature,
-            recipientAddress: recipient.address,
-            amount: recipient.amount
-          });
-        });
-        
-        // Track success
-        analytics.transactionConfirmed(signature, {
-          batch_size: chunk.length,
-          total_amount: chunk.reduce((sum, r) => sum + r.amount, 0),
-          network
-        });
-        
-        // Update progress
-        const completed = (chunkIndex + 1) * batchSize;
-        onProgress?.(Math.min(completed, recipients.length), recipients.length, signature);
-        
-        // Add delay between batches to avoid rate limits
-        if (chunkIndex < chunks.length - 1) {
-          await this.delay(1000);
-        }
-        
-      } catch (error) {
-        console.error(`Batch ${chunkIndex} failed:`, error);
-        
-        // Mark all recipients in this chunk as failed
-        chunk.forEach((recipient, recipientIndex) => {
-          const globalIndex = chunkIndex * batchSize + recipientIndex;
-          results.push({
-            success: false,
-            error: (error as Error).message,
-            recipientAddress: recipient.address,
-            amount: recipient.amount
-          });
-          
-          onError?.(error as Error, globalIndex);
-        });
-        
-        analytics.captureError(error as Error, {
-          context: 'batch_sol_transfer',
-          batch_index: chunkIndex,
-          recipients_in_batch: chunk.length
-        });
-      }
-    }
-    
-    return results;
+  constructor(connection: Connection, wallet: any) {
+    this.connection = connection;
+    this.wallet = wallet;
   }
-  
-  /**
-   * Execute batch SPL token transfers
-   */
-  async executeBatchTokenTransfer(
-    options: BatchTransactionOptions & { tokenMint: string }
-  ): Promise<TransactionResult[]> {
-    const { connection, wallet, recipients, tokenMint, network, onProgress, onError } = options;
-    const results: TransactionResult[] = [];
-    
-    if (!wallet.publicKey || !wallet.signTransaction) {
-      throw new Error('Wallet not connected or does not support signing');
-    }
 
-    const mintPublicKey = new PublicKey(tokenMint);
-    
-    analytics.transactionInitiated('batch_token_transfer', {
-      recipients: recipients.length,
-      token_mint: tokenMint,
-      network
-    });
-
-    // Get token account for sender
-    const senderTokenAccount = await getAssociatedTokenAddress(
-      mintPublicKey,
-      wallet.publicKey
-    );
-    
-    // Verify sender has sufficient tokens
+  // Validate Solana address
+  static validateAddress(address: string): boolean {
     try {
-      const tokenAccount = await getAccount(connection, senderTokenAccount);
-      const totalRequired = recipients.reduce((sum, r) => sum + r.amount, 0);
-      
-      if (Number(tokenAccount.amount) < totalRequired) {
-        throw new Error('Insufficient token balance');
-      }
-    } catch (error) {
-      throw new Error('Token account not found or insufficient balance');
-    }
-    
-    const batchSize = this.getOptimalBatchSize(recipients.length);
-    const chunks = this.chunkArray(recipients, batchSize);
-    
-    for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
-      const chunk = chunks[chunkIndex];
-      
-      try {
-        const transaction = new Transaction();
-        
-        // Add token transfer instructions
-        for (const recipient of chunk) {
-          const recipientTokenAccount = await getAssociatedTokenAddress(
-            mintPublicKey,
-            new PublicKey(recipient.address)
-          );
-          
-          const instruction = createTransferInstruction(
-            senderTokenAccount,
-            recipientTokenAccount,
-            wallet.publicKey,
-            Math.floor(recipient.amount * Math.pow(10, 9)), // Assuming 9 decimals
-            [],
-            TOKEN_PROGRAM_ID
-          );
-          
-          transaction.add(instruction);
-        }
-        
-        // Set transaction properties
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = wallet.publicKey;
-        
-        // Sign and send
-        const signedTransaction = await wallet.signTransaction(transaction);
-        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed'
-        });
-        
-        // Confirm transaction
-        const confirmation = await connection.confirmTransaction({
-          signature,
-          blockhash,
-          lastValidBlockHeight
-        }, 'confirmed');
-        
-        if (confirmation.value.err) {
-          throw new Error(`Token transfer failed: ${confirmation.value.err}`);
-        }
-        
-        // Mark successful
-        chunk.forEach(recipient => {
-          results.push({
-            success: true,
-            signature,
-            recipientAddress: recipient.address,
-            amount: recipient.amount
-          });
-        });
-        
-        analytics.transactionConfirmed(signature, {
-          batch_size: chunk.length,
-          token_mint: tokenMint,
-          network
-        });
-        
-        const completed = (chunkIndex + 1) * batchSize;
-        onProgress?.(Math.min(completed, recipients.length), recipients.length, signature);
-        
-        if (chunkIndex < chunks.length - 1) {
-          await this.delay(1500); // Longer delay for token transfers
-        }
-        
-      } catch (error) {
-        chunk.forEach((recipient, recipientIndex) => {
-          const globalIndex = chunkIndex * batchSize + recipientIndex;
-          results.push({
-            success: false,
-            error: (error as Error).message,
-            recipientAddress: recipient.address,
-            amount: recipient.amount
-          });
-          
-          onError?.(error as Error, globalIndex);
-        });
-        
-        analytics.captureError(error as Error, {
-          context: 'batch_token_transfer',
-          token_mint: tokenMint,
-          batch_index: chunkIndex
-        });
-      }
-    }
-    
-    return results;
-  }
-  
-  /**
-   * Simulate transaction without executing
-   */
-  async simulateTransaction(
-    connection: Connection,
-    transaction: Transaction
-  ): Promise<{ success: boolean; fee: number; error?: string }> {
-    try {
-      // Simulate the transaction
-      const simulation = await connection.simulateTransaction(transaction);
-      
-      if (simulation.value.err) {
-        return {
-          success: false,
-          fee: 0,
-          error: `Simulation failed: ${simulation.value.err}`
-        };
-      }
-      
-      // Calculate actual fee
-      const fee = await this.calculateTransactionFee(connection, transaction);
-      
-      return {
-        success: true,
-        fee
-      };
-      
-    } catch (error) {
-      return {
-        success: false,
-        fee: 0,
-        error: (error as Error).message
-      };
-    }
-  }
-  
-  /**
-   * Calculate accurate transaction fee
-   */
-  async calculateTransactionFee(connection: Connection, transaction: Transaction): Promise<number> {
-    try {
-      const fee = await connection.getFeeForMessage(transaction.compileMessage());
-      return fee.value ? fee.value / LAMPORTS_PER_SOL : 0.000005;
-    } catch {
-      return 0.000005; // Fallback fee
-    }
-  }
-  
-  /**
-   * Get optimal batch size based on network conditions
-   */
-  private getOptimalBatchSize(recipientCount: number): number {
-    // Conservative batch sizes for better success rates
-    if (recipientCount <= 5) return recipientCount;
-    if (recipientCount <= 20) return 5;
-    if (recipientCount <= 50) return 8;
-    return 10; // Max batch size
-  }
-  
-  /**
-   * Split array into chunks
-   */
-  private chunkArray<T>(array: T[], chunkSize: number): T[][] {
-    const chunks: T[][] = [];
-    for (let i = 0; i < array.length; i += chunkSize) {
-      chunks.push(array.slice(i, i + chunkSize));
-    }
-    return chunks;
-  }
-  
-  /**
-   * Utility delay function
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-  
-  /**
-   * Check if address exists on blockchain
-   */
-  async validateAddressExists(connection: Connection, address: string): Promise<boolean> {
-    try {
-      const publicKey = new PublicKey(address);
-      const accountInfo = await connection.getAccountInfo(publicKey);
-      return accountInfo !== null;
+      new PublicKey(address);
+      return true;
     } catch {
       return false;
     }
   }
-  
-  /**
-   * Get current network priority fee recommendations
-   */
-  async getPriorityFeeRecommendation(connection: Connection): Promise<{
-    slow: number;
-    normal: number;
-    fast: number;
-  }> {
+
+  // Get transaction fee estimate
+  async getTransactionFee(transaction: Transaction): Promise<number> {
     try {
-      // This would integrate with priority fee APIs like Helius
-      // For now, return static recommendations
-      return {
-        slow: 0.000001,    // 1000 lamports
-        normal: 0.000005,  // 5000 lamports  
-        fast: 0.00001      // 10000 lamports
-      };
-    } catch {
-      return {
-        slow: 0.000001,
-        normal: 0.000005,
-        fast: 0.00001
-      };
+      const { value } = await this.connection.getFeeForMessage(
+        transaction.compileMessage(),
+        'confirmed'
+      );
+      return value || 5000; // Default fallback
+    } catch (error) {
+      console.error('Error getting transaction fee:', error);
+      return 5000; // Fallback fee
+    }
+  }
+
+  // Send SOL to multiple recipients
+  async sendSolBatch(recipients: Recipient[]): Promise<TransactionResult[]> {
+    if (!this.wallet.publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    const results: TransactionResult[] = [];
+    
+    for (const recipient of recipients) {
+      try {
+        analytics.track('transaction_initiated', {
+          type: 'sol_transfer',
+          amount: recipient.amount,
+          recipient: recipient.address.slice(0, 8)
+        });
+
+        const transaction = new Transaction().add(
+          SystemProgram.transfer({
+            fromPubkey: this.wallet.publicKey,
+            toPubkey: new PublicKey(recipient.address),
+            lamports: recipient.amount * LAMPORTS_PER_SOL,
+          })
+        );
+
+        const signature = await this.wallet.sendTransaction(
+          transaction, 
+          this.connection
+        );
+
+        // Wait for confirmation
+        await this.connection.confirmTransaction(signature, 'confirmed');
+
+        results.push({
+          signature,
+          success: true
+        });
+
+        analytics.track('transaction_completed', {
+          type: 'sol_transfer',
+          signature,
+          amount: recipient.amount
+        });
+
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        
+        results.push({
+          signature: '',
+          success: false,
+          error: errorMsg
+        });
+
+        analytics.track('transaction_failed', {
+          type: 'sol_transfer',
+          error: errorMsg,
+          recipient: recipient.address.slice(0, 8)
+        });
+      }
+    }
+
+    return results;
+  }
+
+  // Send SPL tokens to multiple recipients
+  async sendTokenBatch(recipients: Recipient[], tokenMint: string): Promise<TransactionResult[]> {
+    if (!this.wallet.publicKey) {
+      throw new Error('Wallet not connected');
+    }
+
+    const results: TransactionResult[] = [];
+    const mintPubkey = new PublicKey(tokenMint);
+
+    for (const recipient of recipients) {
+      try {
+        analytics.track('transaction_initiated', {
+          type: 'token_transfer',
+          token_mint: tokenMint,
+          amount: recipient.amount,
+          recipient: recipient.address.slice(0, 8)
+        });
+
+        const recipientPubkey = new PublicKey(recipient.address);
+        
+        // Get sender token account
+        const senderTokenAccount = await getAssociatedTokenAddress(
+          mintPubkey,
+          this.wallet.publicKey
+        );
+
+        // Get or create recipient token account
+        const recipientTokenAccount = await getAssociatedTokenAddress(
+          mintPubkey,
+          recipientPubkey
+        );
+
+        const transaction = new Transaction();
+
+        // Check if recipient token account exists
+        try {
+          await getAccount(this.connection, recipientTokenAccount);
+        } catch (error) {
+          // Create token account if it doesn't exist
+          transaction.add(
+            createAssociatedTokenAccountInstruction(
+              this.wallet.publicKey,
+              recipientTokenAccount,
+              recipientPubkey,
+              mintPubkey,
+              TOKEN_PROGRAM_ID,
+              ASSOCIATED_TOKEN_PROGRAM_ID
+            )
+          );
+        }
+
+        // Add transfer instruction
+        transaction.add(
+          createTransferInstruction(
+            senderTokenAccount,
+            recipientTokenAccount,
+            this.wallet.publicKey,
+            recipient.amount,
+            [],
+            TOKEN_PROGRAM_ID
+          )
+        );
+
+        const signature = await this.wallet.sendTransaction(
+          transaction, 
+          this.connection
+        );
+
+        // Wait for confirmation
+        await this.connection.confirmTransaction(signature, 'confirmed');
+
+        results.push({
+          signature,
+          success: true
+        });
+
+        analytics.track('transaction_completed', {
+          type: 'token_transfer',
+          signature,
+          token_mint: tokenMint,
+          amount: recipient.amount
+        });
+
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        
+        results.push({
+          signature: '',
+          success: false,
+          error: errorMsg
+        });
+
+        analytics.track('transaction_failed', {
+          type: 'token_transfer',
+          error: errorMsg,
+          token_mint: tokenMint,
+          recipient: recipient.address.slice(0, 8)
+        });
+      }
+    }
+
+    return results;
+  }
+
+  // Simulate transaction
+  async simulateTransaction(recipients: Recipient[], tokenMint?: string): Promise<{
+    success: boolean;
+    totalFee: number;
+    estimatedCost: number;
+    errors: string[];
+  }> {
+    const errors: string[] = [];
+    let totalFee = 0;
+
+    // Validate all addresses
+    for (const recipient of recipients) {
+      if (!TransactionService.validateAddress(recipient.address)) {
+        errors.push(`Invalid address: ${recipient.address}`);
+      }
+    }
+
+    // Calculate estimated fees
+    try {
+      if (tokenMint) {
+        // Token transfer fees (higher due to account creation possibility)
+        totalFee = recipients.length * 10000; // 0.01 SOL per transfer
+      } else {
+        // SOL transfer fees
+        totalFee = recipients.length * 5000; // 0.005 SOL per transfer
+      }
+    } catch (error) {
+      errors.push('Failed to estimate transaction fees');
+    }
+
+    const estimatedCost = tokenMint 
+      ? totalFee 
+      : totalFee + recipients.reduce((sum, r) => sum + (r.amount * LAMPORTS_PER_SOL), 0);
+
+    return {
+      success: errors.length === 0,
+      totalFee: totalFee / LAMPORTS_PER_SOL,
+      estimatedCost: estimatedCost / LAMPORTS_PER_SOL,
+      errors
+    };
+  }
+
+  // Get account balance
+  async getBalance(address?: string): Promise<number> {
+    const pubkey = address ? new PublicKey(address) : this.wallet.publicKey;
+    if (!pubkey) return 0;
+
+    try {
+      const balance = await this.connection.getBalance(pubkey);
+      return balance / LAMPORTS_PER_SOL;
+    } catch (error) {
+      console.error('Error getting balance:', error);
+      return 0;
     }
   }
 }
 
-// Export singleton instance
-export const transactionService = new TransactionService();
+// Hook to use transaction service
+export function useTransactionService() {
+  const { connection } = useConnection();
+  const wallet = useWallet();
 
-// Export types for use in components
-export type { TransactionResult, BatchTransactionOptions, TransactionRecipient };
+  const transactionService = new TransactionService(connection, wallet);
+
+  return {
+    transactionService,
+    validateAddress: TransactionService.validateAddress,
+    sendSolBatch: (recipients: Recipient[]) => transactionService.sendSolBatch(recipients),
+    sendTokenBatch: (recipients: Recipient[], tokenMint: string) => 
+      transactionService.sendTokenBatch(recipients, tokenMint),
+    simulateTransaction: (recipients: Recipient[], tokenMint?: string) =>
+      transactionService.simulateTransaction(recipients, tokenMint),
+    getBalance: (address?: string) => transactionService.getBalance(address)
+  };
+}

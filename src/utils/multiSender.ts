@@ -1,238 +1,298 @@
-// src/utils/multiSender.ts - Multi-Sender Utility Functions
-import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getAssociatedTokenAddress, createTransferInstruction, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { PublicKey } from '@solana/web3.js';
+import Papa from 'papaparse';
 
+// Types for Multi-Sender utilities
 export interface Recipient {
   id: string;
   address: string;
   amount: number;
   isValid: boolean;
-  nickname?: string;
 }
 
-export interface BatchTransactionResult {
-  signature: string;
-  recipients: string[];
-  status: 'success' | 'failed';
-  error?: string;
+export interface CSVRow {
+  address: string;
+  amount: string | number;
 }
 
-// Validate Solana address
-export const validateSolanaAddress = (address: string): boolean => {
-  try {
-    new PublicKey(address);
-    return address.length >= 32;
-  } catch {
-    return false;
-  }
-};
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
 
-// Check for duplicate addresses
-export const findDuplicates = (recipients: Recipient[]): string[] => {
-  const addresses = recipients.map(r => r.address.toLowerCase());
-  const duplicates: string[] = [];
-  
-  addresses.forEach((address, index) => {
-    if (addresses.indexOf(address) !== index && !duplicates.includes(address)) {
-      duplicates.push(address);
+// Multi-Sender utility functions
+export class MultiSenderUtils {
+  // Validate Solana address
+  static validateAddress(address: string): boolean {
+    try {
+      new PublicKey(address);
+      return true;
+    } catch {
+      return false;
     }
-  });
-  
-  return duplicates;
-};
+  }
 
-// Calculate total cost including fees
-export const calculateTotalCost = (recipients: Recipient[], feePerTransaction: number = 0.000005): number => {
-  const totalAmount = recipients.reduce((sum, r) => sum + r.amount, 0);
-  const totalFees = recipients.length * feePerTransaction;
-  return totalAmount + totalFees;
-};
+  // Generate unique ID for recipient
+  static generateId(): string {
+    return `recipient_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
 
-// Parse CSV file to recipients
-export const parseCSV = async (file: File): Promise<Recipient[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const csv = e.target?.result as string;
-        const lines = csv.split('\n').filter(line => line.trim());
-        
-        if (lines.length < 2) {
-          throw new Error('CSV file must contain at least header and one data row');
-        }
-        
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        const addressIndex = headers.findIndex(h => h.includes('address') || h.includes('wallet'));
-        const amountIndex = headers.findIndex(h => h.includes('amount') || h.includes('sol'));
-        const nicknameIndex = headers.findIndex(h => h.includes('nickname') || h.includes('name') || h.includes('label'));
-        
-        if (addressIndex === -1) {
-          throw new Error('CSV must contain an "address" column');
-        }
-        if (amountIndex === -1) {
-          throw new Error('CSV must contain an "amount" column');
-        }
-
-        const recipients: Recipient[] = lines.slice(1).map((line, index) => {
-          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-          const address = values[addressIndex] || '';
-          const amount = parseFloat(values[amountIndex]) || 0;
-          const nickname = nicknameIndex !== -1 ? values[nicknameIndex] : undefined;
-          
-          return {
-            id: `csv-${index}`,
-            address,
-            amount,
-            isValid: validateSolanaAddress(address) && amount > 0,
-            nickname
-          };
-        }).filter(r => r.address && r.amount > 0);
-
-        resolve(recipients);
-      } catch (error) {
-        reject(error);
-      }
+  // Create new recipient
+  static createRecipient(address: string = '', amount: number = 0): Recipient {
+    return {
+      id: this.generateId(),
+      address,
+      amount,
+      isValid: this.validateAddress(address)
     };
-    
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsText(file);
-  });
-};
+  }
 
-// Generate CSV template
-export const generateCSVTemplate = (): string => {
-  return `address,amount,nickname
-11111111111111111111111111111112,0.1,Alice Wallet
-22222222222222222222222222222223,0.2,Bob Wallet
-33333333333333333333333333333334,0.15,Charlie Wallet
-44444444444444444444444444444445,0.05,David Wallet`;
-};
+  // Validate recipient data
+  static validateRecipient(recipient: Recipient): ValidationResult {
+    const errors: string[] = [];
+    const warnings: string[] = [];
 
-// Create SOL transfer transaction
-export const createSOLTransferTransaction = async (
-  connection: Connection,
-  fromPubkey: PublicKey,
-  recipients: Recipient[]
-): Promise<Transaction> => {
-  const transaction = new Transaction();
-  
-  // Add transfer instructions for each recipient
-  recipients.forEach(recipient => {
-    const instruction = SystemProgram.transfer({
-      fromPubkey,
-      toPubkey: new PublicKey(recipient.address),
-      lamports: recipient.amount * LAMPORTS_PER_SOL,
+    // Validate address
+    if (!recipient.address) {
+      errors.push('Address is required');
+    } else if (!this.validateAddress(recipient.address)) {
+      errors.push('Invalid Solana address format');
+    }
+
+    // Validate amount
+    if (recipient.amount <= 0) {
+      errors.push('Amount must be greater than 0');
+    }
+
+    if (recipient.amount > 1000000) {
+      warnings.push('Large amount detected - please verify');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings
+    };
+  }
+
+  // Validate entire recipient list
+  static validateRecipients(recipients: Recipient[]): ValidationResult {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    if (recipients.length === 0) {
+      errors.push('At least one recipient is required');
+      return { isValid: false, errors, warnings };
+    }
+
+    // Check for duplicates
+    const addressSet = new Set<string>();
+    const duplicates: string[] = [];
+
+    recipients.forEach((recipient, index) => {
+      const validation = this.validateRecipient(recipient);
+      
+      // Add individual errors with index
+      validation.errors.forEach(error => {
+        errors.push(`Recipient ${index + 1}: ${error}`);
+      });
+
+      validation.warnings.forEach(warning => {
+        warnings.push(`Recipient ${index + 1}: ${warning}`);
+      });
+
+      // Check for duplicates
+      if (recipient.address && addressSet.has(recipient.address)) {
+        duplicates.push(recipient.address);
+      } else if (recipient.address) {
+        addressSet.add(recipient.address);
+      }
     });
-    transaction.add(instruction);
-  });
-  
-  // Get recent blockhash
-  const { blockhash } = await connection.getLatestBlockhash();
-  transaction.recentBlockhash = blockhash;
-  transaction.feePayer = fromPubkey;
-  
-  return transaction;
-};
 
-// Estimate transaction fees
-export const estimateTransactionFees = async (
-  connection: Connection,
-  transaction: Transaction
-): Promise<number> => {
-  try {
-    const fee = await connection.getFeeForMessage(transaction.compileMessage());
-    return fee.value ? fee.value / LAMPORTS_PER_SOL : 0.000005 * transaction.instructions.length;
-  } catch {
-    // Fallback fee estimation
-    return 0.000005 * transaction.instructions.length;
+    // Add duplicate warnings
+    if (duplicates.length > 0) {
+      warnings.push(`Duplicate addresses found: ${duplicates.join(', ')}`);
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings
+    };
   }
-};
 
-// Split large batches into smaller chunks
-export const chunkRecipients = (recipients: Recipient[], chunkSize: number = 10): Recipient[][] => {
-  const chunks: Recipient[][] = [];
-  for (let i = 0; i < recipients.length; i += chunkSize) {
-    chunks.push(recipients.slice(i, i + chunkSize));
+  // Parse CSV data
+  static parseCSV(csvContent: string): Promise<Recipient[]> {
+    return new Promise((resolve, reject) => {
+      Papa.parse(csvContent, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: true,
+        transformHeader: (header: string) => {
+          // Normalize headers
+          const normalized = header.toLowerCase().trim();
+          if (normalized.includes('address') || normalized.includes('wallet') || normalized.includes('pubkey')) {
+            return 'address';
+          }
+          if (normalized.includes('amount') || normalized.includes('value') || normalized.includes('sol') || normalized.includes('token')) {
+            return 'amount';
+          }
+          return normalized;
+        },
+        complete: (results) => {
+          try {
+            const recipients: Recipient[] = results.data
+              .map((row: any) => {
+                const address = String(row.address || '').trim();
+                const amount = Number(row.amount || 0);
+                
+                return this.createRecipient(address, amount);
+              })
+              .filter(recipient => recipient.address !== ''); // Remove empty addresses
+
+            resolve(recipients);
+          } catch (error) {
+            reject(new Error(`Failed to parse CSV: ${error}`));
+          }
+        },
+        error: (error) => {
+          reject(new Error(`CSV parsing error: ${error.message}`));
+        }
+      });
+    });
   }
-  return chunks;
-};
 
-// Format transaction signature for display
-export const formatSignature = (signature: string): string => {
-  if (signature.length < 16) return signature;
-  return `${signature.slice(0, 8)}...${signature.slice(-8)}`;
-};
+  // Generate CSV template
+  static generateCSVTemplate(): string {
+    const template = [
+      { address: 'RecipientAddress1', amount: '0.1' },
+      { address: 'RecipientAddress2', amount: '0.2' },
+      { address: 'RecipientAddress3', amount: '0.3' }
+    ];
 
-// Generate Solana Explorer URL
-export const getExplorerUrl = (signature: string, network: 'mainnet-beta' | 'devnet'): string => {
-  const clusterParam = network === 'devnet' ? '?cluster=devnet' : '';
-  return `https://explorer.solana.com/tx/${signature}${clusterParam}`;
-};
-
-// Validate recipient data before transaction
-export const validateRecipients = (recipients: Recipient[]): { 
-  valid: boolean; 
-  errors: string[]; 
-  warnings: string[] 
-} => {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  
-  if (recipients.length === 0) {
-    errors.push('At least one recipient is required');
+    return Papa.unparse(template, {
+      header: true,
+      columns: ['address', 'amount']
+    });
   }
-  
-  if (recipients.length > 100) {
-    errors.push('Maximum 100 recipients per batch');
-  }
-  
-  const duplicates = findDuplicates(recipients);
-  if (duplicates.length > 0) {
-    warnings.push(`Duplicate addresses detected: ${duplicates.length} duplicates`);
-  }
-  
-  const invalidAddresses = recipients.filter(r => !r.isValid);
-  if (invalidAddresses.length > 0) {
-    errors.push(`${invalidAddresses.length} invalid addresses found`);
-  }
-  
-  const zeroAmounts = recipients.filter(r => r.amount <= 0);
-  if (zeroAmounts.length > 0) {
-    errors.push(`${zeroAmounts.length} recipients have zero or negative amounts`);
-  }
-  
-  return {
-    valid: errors.length === 0,
-    errors,
-    warnings
-  };
-};
 
-// Calculate optimal batch size based on network conditions
-export const calculateOptimalBatchSize = (networkLatency: number): number => {
-  if (networkLatency < 100) return 15; // Fast network
-  if (networkLatency < 300) return 10; // Normal network  
-  if (networkLatency < 500) return 8;  // Slow network
-  return 5; // Very slow network
-};
+  // Export recipients to CSV
+  static exportToCSV(recipients: Recipient[]): string {
+    const csvData = recipients.map(recipient => ({
+      address: recipient.address,
+      amount: recipient.amount
+    }));
 
-// Format amount for display
-export const formatAmount = (amount: number, decimals: number = 4): string => {
-  return amount.toFixed(decimals);
-};
+    return Papa.unparse(csvData, {
+      header: true,
+      columns: ['address', 'amount']
+    });
+  }
 
-// Generate distribution presets
-export const generateDistributionPresets = (totalAmount: number, recipientCount: number) => {
-  return {
-    equal: totalAmount / recipientCount,
-    pyramid: {
-      // Decreasing amounts: 40%, 30%, 20%, 10% for 4 recipients
-      ratios: [0.4, 0.3, 0.2, 0.1].slice(0, recipientCount),
-      amounts: [0.4, 0.3, 0.2, 0.1].slice(0, recipientCount).map(ratio => totalAmount * ratio)
-    },
-    random: Array.from({ length: recipientCount }, () => 
-      Math.random() * (totalAmount / recipientCount) * 2
-    ).map(amount => Math.min(amount, totalAmount))
-  };
-};
+  // Calculate total amount
+  static calculateTotal(recipients: Recipient[]): number {
+    return recipients.reduce((sum, recipient) => sum + (recipient.amount || 0), 0);
+  }
+
+  // Calculate statistics
+  static calculateStats(recipients: Recipient[]) {
+    const validRecipients = recipients.filter(r => r.isValid && r.amount > 0);
+    const amounts = validRecipients.map(r => r.amount);
+    
+    if (amounts.length === 0) {
+      return {
+        total: 0,
+        average: 0,
+        min: 0,
+        max: 0,
+        count: 0,
+        validCount: 0
+      };
+    }
+
+    const total = amounts.reduce((sum, amount) => sum + amount, 0);
+    const average = total / amounts.length;
+    const min = Math.min(...amounts);
+    const max = Math.max(...amounts);
+
+    return {
+      total,
+      average,
+      min,
+      max,
+      count: recipients.length,
+      validCount: validRecipients.length
+    };
+  }
+
+  // Equal distribution helper
+  static distributeEqually(recipients: Recipient[], totalAmount: number): Recipient[] {
+    if (recipients.length === 0 || totalAmount <= 0) {
+      return recipients;
+    }
+
+    const amountPerRecipient = totalAmount / recipients.length;
+    
+    return recipients.map(recipient => ({
+      ...recipient,
+      amount: amountPerRecipient
+    }));
+  }
+
+  // Batch recipients for processing
+  static batchRecipients(recipients: Recipient[], batchSize: number = 10): Recipient[][] {
+    const batches: Recipient[][] = [];
+    
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      batches.push(recipients.slice(i, i + batchSize));
+    }
+    
+    return batches;
+  }
+
+  // Download file helper
+  static downloadFile(content: string, filename: string, mimeType: string = 'text/plain'): void {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    URL.revokeObjectURL(url);
+  }
+
+  // Format Solana address for display
+  static formatAddress(address: string, length: number = 8): string {
+    if (!address || address.length < length * 2) {
+      return address;
+    }
+    
+    return `${address.slice(0, length)}...${address.slice(-length)}`;
+  }
+
+  // Format amount for display
+  static formatAmount(amount: number, decimals: number = 6): string {
+    return amount.toFixed(decimals);
+  }
+
+  // Generate random test data
+  static generateTestData(count: number = 5): Recipient[] {
+    const recipients: Recipient[] = [];
+    
+    for (let i = 0; i < count; i++) {
+      // Generate mock addresses (using PublicKey.unique() for valid addresses)
+      const mockAddress = PublicKey.unique().toString();
+      const randomAmount = Math.random() * 10; // 0-10 SOL
+      
+      recipients.push(this.createRecipient(mockAddress, randomAmount));
+    }
+    
+    return recipients;
+  }
+}

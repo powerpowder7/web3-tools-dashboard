@@ -122,45 +122,62 @@ export class MultiSenderUtils {
   }
 
   // Parse CSV data
-  static parseCSV(csvContent: string): Promise<Recipient[]> {
-    return new Promise((resolve, reject) => {
-      Papa.parse(csvContent, {
-        header: true,
-        skipEmptyLines: true,
-        dynamicTyping: true,
-        transformHeader: (header: string) => {
-          // Normalize headers
-          const normalized = header.toLowerCase().trim();
-          if (normalized.includes('address') || normalized.includes('wallet') || normalized.includes('pubkey')) {
-            return 'address';
-          }
-          if (normalized.includes('amount') || normalized.includes('value') || normalized.includes('sol') || normalized.includes('token')) {
-            return 'amount';
-          }
-          return normalized;
-        },
-        complete: (results) => {
-          try {
-            const recipients: Recipient[] = results.data
-              .map((row: any) => {
-                const address = String(row.address || '').trim();
-                const amount = Number(row.amount || 0);
-                
-                return this.createRecipient(address, amount);
-              })
-              .filter(recipient => recipient.address !== ''); // Remove empty addresses
+static parseCSV(csvContent: string): Promise<Recipient[]> {
+  return new Promise((resolve, reject) => {
+    try {
+      // Simple CSV parsing without Papa Parse for better type safety
+      const lines = csvContent.trim().split('\n');
+      
+      if (lines.length < 2) {
+        reject(new Error('CSV must contain at least a header and one data row'));
+        return;
+      }
 
-            resolve(recipients);
-          } catch (error) {
-            reject(new Error(`Failed to parse CSV: ${error}`));
+      // Parse header
+      const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+      
+      // Find address and amount column indices
+      const addressIndex = header.findIndex(h => 
+        h.includes('address') || h.includes('wallet') || h.includes('pubkey')
+      );
+      const amountIndex = header.findIndex(h => 
+        h.includes('amount') || h.includes('value') || h.includes('sol') || h.includes('token')
+      );
+
+      if (addressIndex === -1 || amountIndex === -1) {
+        reject(new Error('CSV must contain both address and amount columns'));
+        return;
+      }
+
+      // Parse data rows
+      const recipients: Recipient[] = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const row = lines[i].split(',').map(cell => cell.trim());
+        
+        if (row.length > addressIndex && row.length > amountIndex) {
+          const address = row[addressIndex];
+          const amountStr = row[amountIndex];
+          const amount = parseFloat(amountStr) || 0;
+          
+          if (address) {
+            recipients.push(this.createRecipient(address, amount));
           }
-        },
-        error: (error) => {
-          reject(new Error(`CSV parsing error: ${error.message}`));
         }
-      });
-    });
-  }
+      }
+
+      if (recipients.length === 0) {
+        reject(new Error('No valid recipients found in CSV'));
+        return;
+      }
+
+      resolve(recipients);
+      
+    } catch (error) {
+      reject(new Error(`CSV parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
+    }
+  });
+}
 
   // Generate CSV template
   static generateCSVTemplate(): string {

@@ -17,7 +17,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID
 } from '@solana/spl-token';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { analytics } from '@/services/analytics';
+import analytics from '@/services/analytics';
 
 export interface TransactionResult {
   signature: string;

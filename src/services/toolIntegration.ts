@@ -1,6 +1,5 @@
 import { PublicKey } from '@solana/web3.js';
-import { analytics } from '@/services/analytics';
-
+import analytics from '@/services/analytics';
 // Types for tool integration
 export interface GeneratedWallet {
   publicKey: string;

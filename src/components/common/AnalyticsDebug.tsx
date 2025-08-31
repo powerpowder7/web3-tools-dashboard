@@ -90,12 +90,12 @@ const AnalyticsDebug = () => {
 
   const testCSVUpload = () => {
     // Method signature: csvUploaded(p0: string, p1: number, event: CSVEvent)
-    analytics.csvUploaded('test_file.csv', 100, {
-      filename: 'test_file.csv',
-      rows: 100,
-      columns: ['address', 'amount', 'token'],
-      file_size: 2048
-    });
+  analytics.csvUploaded('test_file.csv', 100, {
+  filename: 'test_file.csv',
+  rows: 100,
+  columns: ['address', 'amount', 'token'],
+  file_size: 2048
+});
     addTestResult('📄 CSV upload event sent');
   };
 

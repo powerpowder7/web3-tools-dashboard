@@ -3,10 +3,7 @@ import {
   PublicKey, 
   Transaction, 
   SystemProgram, 
-  LAMPORTS_PER_SOL,
-  TransactionSignature,
-  sendAndConfirmTransaction,
-  Keypair
+  LAMPORTS_PER_SOL
 } from '@solana/web3.js';
 import { 
   createTransferInstruction,

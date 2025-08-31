@@ -89,15 +89,14 @@ const AnalyticsDebug = () => {
   };
 
   const testCSVUpload = () => {
-    // Method signature: csvUploaded(p0: string, p1: number, event: CSVEvent)
-  analytics.csvUploaded('test_file.csv', 100, {
-  filename: 'test_file.csv',
-  rows: 100,
-  columns: ['address', 'amount', 'token'],
-  file_size: 2048
-});
-    addTestResult('📄 CSV upload event sent');
-  };
+  analytics.csvUploaded({
+    filename: 'test_file.csv',
+    rows: 100,
+    columns: ['address', 'amount', 'token'],
+    file_size: 2048
+  });
+  addTestResult('📄 CSV upload event sent');
+};
 
   return (
     <Card className="fixed bottom-4 right-4 w-80 z-50 border-orange-200 bg-orange-50">

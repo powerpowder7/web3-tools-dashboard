@@ -211,15 +211,15 @@ class AnalyticsService {
 
   // CSV operations
   csvUploaded(event: CSVEvent) {
-    this.safeTrack('csv_uploaded', {
-      filename: event.filename,
-      row_count: event.rows.toString(),
-      column_count: event.columns.length.toString(),
-      columns: event.columns.join(','),
-      file_size: event.file_size.toString(),
-      processing_time: event.processing_time?.toString()
-    });
-  }
+  this.safeTrack('csv_uploaded', {
+    filename: event.filename,
+    row_count: event.rows.toString(),
+    column_count: event.columns.length.toString(),
+    columns: event.columns.join(','),
+    file_size: event.file_size.toString(),
+    processing_time: event.processing_time?.toString()
+  });
+}
 
   csvProcessed(rows: number, valid: number, invalid: number) {
     this.safeTrack('csv_processed', {

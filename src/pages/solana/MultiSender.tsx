@@ -26,7 +26,7 @@ type InputMethod = 'manual' | 'csv' | 'wallet-generator';
 
 const MultiSender: React.FC = () => {
   // Using your existing SolanaWalletContext
-  const { connected, publicKey, balance, network } = useSolanaWallet();
+  const { connected, balance, network } = useSolanaWallet();
   
   // Component state
   const [inputMethod, setInputMethod] = useState<InputMethod>('manual');

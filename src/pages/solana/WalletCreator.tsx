@@ -1,5 +1,5 @@
 // src/pages/solana/WalletCreator.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,10 +18,17 @@ import {
   Database,
   Eye,
   EyeOff,
-  RefreshCw
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import { useSolanaWallet } from '@/contexts/SolanaWalletContext';
 import analytics from '@/services/analytics';
+import { 
+  generateRealWallets, 
+  validateGenerationSecurity,
+  type RealGeneratedBatch,
+  type WalletGenerationType 
+} from '@/utils/realWalletGeneration';
 
 // Simple progress bar component (if not available in UI library)
 const Progress = ({ value, className }: { value: number; className?: string }) => (
@@ -35,21 +42,6 @@ const Progress = ({ value, className }: { value: number; className?: string }) =
 
 // Types
 type GenerationStep = 'config' | 'generating' | 'results';
-type WalletType = 'hd' | 'standard';
-
-interface GeneratedWallet {
-  index: number;
-  address: string;
-  privateKey: string;
-  publicKey: string;
-  derivationPath?: string;
-}
-
-interface GeneratedBatch {
-  wallets: GeneratedWallet[];
-  mnemonic?: string;
-  seedPhrase?: string[];
-}
 
 interface GenerationProgress {
   current: number;
@@ -57,55 +49,26 @@ interface GenerationProgress {
   step: string;
 }
 
-// Simplified wallet generation (using mock data for now)
-const generateMockWallets = (count: number, type: WalletType): GeneratedBatch => {
-  const wallets: GeneratedWallet[] = [];
-  
-  // Generate mock mnemonic for HD wallets
-  const mockMnemonic = type === 'hd' ? 
-    'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about' : undefined;
-  
-  const seedPhrase = mockMnemonic?.split(' ');
-
-  for (let i = 0; i < count; i++) {
-    // Generate realistic-looking Solana addresses
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz123456789';
-    let mockAddress = '';
-    for (let j = 0; j < 44; j++) {
-      mockAddress += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    
-    wallets.push({
-      index: i,
-      address: mockAddress,
-      privateKey: `mock_private_key_${i}_${Math.random().toString(36).substring(2, 15)}`,
-      publicKey: mockAddress,
-      derivationPath: type === 'hd' ? `m/44'/501'/${i}'/0'` : undefined
-    });
-  }
-
-  return {
-    wallets,
-    ...(type === 'hd' && mockMnemonic && { 
-      mnemonic: mockMnemonic,
-      seedPhrase: seedPhrase
-    })
-  };
-};
-
 const WalletCreator: React.FC = () => {
   const { network } = useSolanaWallet();
   const [currentStep, setCurrentStep] = useState<GenerationStep>('config');
-  const [walletType, setWalletType] = useState<WalletType>('hd');
+  const [walletType, setWalletType] = useState<WalletGenerationType>('hd');
   const [walletCount, setWalletCount] = useState<number>(5);
   const [wordCount, setWordCount] = useState<12 | 24>(12);
   const [suggestedAmount, setSuggestedAmount] = useState<number>(0.1);
-  const [generatedBatch, setGeneratedBatch] = useState<GeneratedBatch | null>(null);
+  const [generatedBatch, setGeneratedBatch] = useState<RealGeneratedBatch | null>(null);
   const [progress, setProgress] = useState<GenerationProgress>({ current: 0, total: 0, step: '' });
   const [showPrivateKeys, setShowPrivateKeys] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [securityWarnings, setSecurityWarnings] = useState<string[]>([]);
 
-  // Handle wallet generation
+  // Check security on component mount
+  useEffect(() => {
+    const { warnings } = validateGenerationSecurity();
+    setSecurityWarnings(warnings);
+  }, []);
+
+  // Handle wallet generation with real cryptography
   const handleGenerate = useCallback(async () => {
     try {
       setIsGenerating(true);
@@ -118,32 +81,49 @@ const WalletCreator: React.FC = () => {
           type: walletType,
           count: walletCount,
           word_count: wordCount,
-          network: network
+          network: network,
+          real_generation: true
         }
       });
 
-      // Simulate progress for better UX
+      // Progress simulation with realistic steps
       const steps = [
-        'Initializing secure random generator...',
-        walletType === 'hd' ? 'Generating master seed phrase...' : 'Generating keypairs...',
-        'Deriving wallet addresses...',
+        'Initializing cryptographically secure random generator...',
+        walletType === 'hd' ? 'Generating BIP39 mnemonic seed phrase...' : 'Generating Ed25519 keypairs...',
+        walletType === 'hd' ? 'Deriving HD wallet keys from seed...' : 'Creating independent keypairs...',
+        'Generating Solana addresses...',
         'Validating generated wallets...',
-        'Preparing wallet data...'
+        'Finalizing wallet data...'
       ];
 
-      for (let i = 0; i < steps.length; i++) {
+      for (let i = 0; i < steps.length - 1; i++) {
         setProgress({
           current: i + 1,
           total: steps.length,
           step: steps[i]
         });
         
-        // Add realistic delays for better UX
-        await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200));
+        await new Promise(resolve => setTimeout(resolve, 400 + Math.random() * 300));
       }
 
-      // Generate wallets (using mock data for now)
-      const batch = generateMockWallets(walletCount, walletType);
+      // Final step - actual generation
+      setProgress({
+        current: steps.length - 1,
+        total: steps.length,
+        step: steps[steps.length - 1]
+      });
+
+      // Generate real wallets using cryptographic functions
+      const batch = await generateRealWallets(walletCount, walletType, wordCount);
+      
+      setProgress({
+        current: steps.length,
+        total: steps.length,
+        step: 'Generation complete!'
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       setGeneratedBatch(batch);
       setCurrentStep('results');
 
@@ -154,22 +134,30 @@ const WalletCreator: React.FC = () => {
         metadata: {
           type: walletType,
           generated_count: batch.wallets.length,
-          network: network
+          network: network,
+          real_generation: true,
+          has_mnemonic: !!batch.mnemonic
         }
       });
 
     } catch (error) {
-      console.error('Wallet generation failed:', error);
+      console.error('Real wallet generation failed:', error);
+      
       analytics.captureError(error as Error, {
-        context: 'wallet_generation'
+        context: 'real_wallet_generation',
+        wallet_type: walletType,
+        wallet_count: walletCount
       });
+      
+      // Show user-friendly error message
+      alert(`Wallet generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setCurrentStep('config');
     } finally {
       setIsGenerating(false);
     }
-  }, [walletType, walletCount, wordCount, suggestedAmount, network]);
+  }, [walletType, walletCount, wordCount, network]);
 
-  // Handle export
+  // Handle export (updated to work with real wallet data)
   const handleExport = useCallback(async (format: 'csv' | 'json' | 'txt') => {
     if (!generatedBatch) return;
 
@@ -206,9 +194,11 @@ const WalletCreator: React.FC = () => {
             network: network,
             totalWallets: generatedBatch.wallets.length,
             suggestedAmount: suggestedAmount,
+            cryptographicallyGenerated: true,
             ...(walletType === 'hd' && generatedBatch.mnemonic && {
               mnemonic: generatedBatch.mnemonic,
-              seedPhrase: generatedBatch.seedPhrase
+              seedPhrase: generatedBatch.seedPhrase,
+              wordCount: generatedBatch.seedPhrase?.length || wordCount
             }),
             wallets: generatedBatch.wallets.map((wallet) => ({
               index: wallet.index,
@@ -224,30 +214,43 @@ const WalletCreator: React.FC = () => {
 
         case 'txt':
           const lines: string[] = [];
-          lines.push('='.repeat(60));
-          lines.push(`SOLANA WALLET BATCH EXPORT`);
+          lines.push('='.repeat(70));
+          lines.push(`SOLANA WALLET BATCH EXPORT - CRYPTOGRAPHICALLY GENERATED`);
           lines.push(`Generated: ${new Date().toISOString()}`);
-          lines.push(`Type: ${walletType === 'hd' ? 'HD Wallets' : 'Standard Keypairs'}`);
+          lines.push(`Type: ${walletType === 'hd' ? 'HD Wallets (BIP39/BIP44)' : 'Standard Ed25519 Keypairs'}`);
+          lines.push(`Network: ${network}`);
           lines.push(`Total Wallets: ${generatedBatch.wallets.length}`);
-          lines.push('='.repeat(60));
+          lines.push('='.repeat(70));
           lines.push('');
 
           if (walletType === 'hd' && generatedBatch.mnemonic) {
-            lines.push('RECOVERY SEED PHRASE:');
+            lines.push('RECOVERY SEED PHRASE (KEEP SECURE):');
             lines.push(generatedBatch.mnemonic);
+            lines.push('');
+            lines.push('This seed phrase can recover ALL wallets below!');
             lines.push('');
           }
 
           lines.push('WALLET DETAILS:');
+          lines.push('');
           generatedBatch.wallets.forEach((wallet, index) => {
             lines.push(`Wallet #${index + 1}:`);
             lines.push(`  Address: ${wallet.address}`);
+            if (wallet.derivationPath) {
+              lines.push(`  Path: ${wallet.derivationPath}`);
+            }
             if (showPrivateKeys) {
               lines.push(`  Private Key: ${wallet.privateKey}`);
             }
             lines.push(`  Suggested Amount: ${suggestedAmount} SOL`);
             lines.push('');
           });
+
+          lines.push('SECURITY REMINDERS:');
+          lines.push('• Private keys give FULL control over wallets');
+          lines.push('• Never share private keys or seed phrases');
+          lines.push('• Store backups securely offline');
+          lines.push('• Consider hardware wallets for large amounts');
 
           content = lines.join('\n');
           mimeType = 'text/plain';
@@ -268,7 +271,9 @@ const WalletCreator: React.FC = () => {
         action: 'export_download',
         metadata: {
           format: format,
-          filename: filename
+          filename: filename,
+          include_private_keys: showPrivateKeys,
+          wallet_count: generatedBatch.wallets.length
         }
       });
 
@@ -277,8 +282,9 @@ const WalletCreator: React.FC = () => {
       analytics.captureError(error as Error, {
         context: 'wallet_export'
       });
+      alert('Export failed. Please try again.');
     }
-  }, [generatedBatch, showPrivateKeys, suggestedAmount, walletType, walletCount, network]);
+  }, [generatedBatch, showPrivateKeys, suggestedAmount, walletType, walletCount, network, wordCount]);
 
   // Handle Multi-Sender integration
   const handleSendToMultiSender = useCallback(async () => {
@@ -288,7 +294,7 @@ const WalletCreator: React.FC = () => {
       const recipients = generatedBatch.wallets.map((wallet) => ({
         address: wallet.address,
         amount: suggestedAmount,
-        source: 'wallet-creator',
+        source: 'wallet-generator',
         isValid: true
       }));
 
@@ -297,7 +303,12 @@ const WalletCreator: React.FC = () => {
         timestamp: new Date().toISOString(),
         source: 'wallet_creator',
         target: 'multi_sender',
-        recipients: recipients
+        recipients: recipients,
+        metadata: {
+          wallet_type: walletType,
+          generated_count: generatedBatch.wallets.length,
+          cryptographically_generated: true
+        }
       }));
 
       analytics.toolUsed({
@@ -306,24 +317,34 @@ const WalletCreator: React.FC = () => {
         success: true,
         metadata: {
           wallet_count: generatedBatch.wallets.length,
-          suggested_amount: suggestedAmount
+          suggested_amount: suggestedAmount,
+          wallet_type: walletType
         }
       });
       
-      alert('Wallets sent to Multi-Sender tool successfully!');
+      alert(`Successfully sent ${generatedBatch.wallets.length} wallets to Multi-Sender tool!`);
     } catch (error) {
       console.error('Multi-Sender integration failed:', error);
       alert('Failed to send wallets to Multi-Sender. Please try exporting manually.');
     }
-  }, [generatedBatch, suggestedAmount]);
+  }, [generatedBatch, suggestedAmount, walletType]);
 
   // Copy to clipboard
   const copyToClipboard = useCallback(async (text: string, type: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      analytics.trackEvent('wallet_creator_copy', { type });
+      analytics.trackEvent('wallet_creator_copy', { type, length: text.length });
+      
+      // Visual feedback could be added here
     } catch (error) {
       console.error('Copy failed:', error);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
     }
   }, []);
 
@@ -342,9 +363,33 @@ const WalletCreator: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold">Wallet Creator</h1>
           <p className="text-muted-foreground">
-            Generate multiple Solana wallets for development and production use
+            Generate cryptographically secure Solana wallets for development and production use
           </p>
         </div>
+
+        {/* Security Warning */}
+        {securityWarnings.length > 0 && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-amber-800">
+                <Info className="h-5 w-5" />
+                Environment Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="text-sm text-amber-700 space-y-1">
+                {securityWarnings.map((warning, index) => (
+                  <li key={index}>• {warning}</li>
+                ))}
+              </ul>
+              {network === 'mainnet-beta' && securityWarnings.length > 0 && (
+                <p className="mt-2 text-sm font-medium text-amber-800">
+                  For production mainnet wallets, consider using a hardware wallet or offline generation.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Wallet Type Selection */}
         <div className="grid md:grid-cols-2 gap-6">
@@ -368,7 +413,7 @@ const WalletCreator: React.FC = () => {
                 {walletType === 'hd' && <CheckCircle className="h-5 w-5 text-blue-600" />}
               </div>
               <CardDescription>
-                Generate wallets from a single master seed phrase. More secure and easier to backup.
+                Generate wallets from a single BIP39 seed phrase. More secure and easier to backup.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -376,7 +421,7 @@ const WalletCreator: React.FC = () => {
                 <li>• Single seed phrase recovers all wallets</li>
                 <li>• Industry standard (BIP39/BIP44)</li>
                 <li>• Hierarchical derivation paths</li>
-                <li>• Easier backup and recovery</li>
+                <li>• Cryptographically secure generation</li>
               </ul>
             </CardContent>
           </Card>
@@ -398,14 +443,14 @@ const WalletCreator: React.FC = () => {
                 {walletType === 'standard' && <CheckCircle className="h-5 w-5 text-purple-600" />}
               </div>
               <CardDescription>
-                Generate independent keypairs. Each wallet has unique private key.
+                Generate independent Ed25519 keypairs. Each wallet has unique private key.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Independent private keys</li>
+                <li>• Independent Ed25519 private keys</li>
                 <li>• No relationship between wallets</li>
-                <li>• Simple generation process</li>
+                <li>• Direct cryptographic generation</li>
                 <li>• Each wallet backed up separately</li>
               </ul>
             </CardContent>
@@ -456,7 +501,7 @@ const WalletCreator: React.FC = () => {
                       24 words
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">More words = higher security</p>
+                  <p className="text-xs text-muted-foreground">24 words = maximum security</p>
                 </div>
               )}
 
@@ -464,7 +509,7 @@ const WalletCreator: React.FC = () => {
                 <label className="text-sm font-medium">Suggested Amount (SOL)</label>
                 <Input
                   type="number"
-                  step="0.1"
+                  step="0.001"
                   min="0"
                   value={suggestedAmount}
                   onChange={(e) => setSuggestedAmount(Math.max(0, parseFloat(e.target.value) || 0))}
@@ -483,7 +528,7 @@ const WalletCreator: React.FC = () => {
               <AlertTriangle className="h-4 w-4" />
               <span className="text-sm">
                 {network === 'mainnet-beta' 
-                  ? 'Production mode: Generated wallets will be on Solana Mainnet'
+                  ? 'Production mode: Generated wallets will be on Solana Mainnet - USE WITH CAUTION'
                   : 'Development mode: Generated wallets will be on Solana Devnet'
                 }
               </span>
@@ -500,7 +545,7 @@ const WalletCreator: React.FC = () => {
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8"
           >
             <Wallet className="h-5 w-5 mr-2" />
-            Generate {walletCount} {walletType === 'hd' ? 'HD' : 'Standard'} Wallet{walletCount > 1 ? 's' : ''}
+            Generate {walletCount} Real {walletType === 'hd' ? 'HD' : 'Standard'} Wallet{walletCount > 1 ? 's' : ''}
           </Button>
         </div>
       </div>
@@ -515,10 +560,10 @@ const WalletCreator: React.FC = () => {
           <CardHeader className="text-center">
             <CardTitle className="flex items-center gap-2 justify-center">
               <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
-              Generating Wallets
+              Generating Real Wallets
             </CardTitle>
             <CardDescription>
-              Creating secure {walletType === 'hd' ? 'HD wallets from master seed' : 'independent keypairs'}
+              Creating cryptographically secure {walletType === 'hd' ? 'HD wallets from BIP39 seed' : 'Ed25519 keypairs'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -543,9 +588,9 @@ const WalletCreator: React.FC = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Wallet Generation Complete</h1>
+            <h1 className="text-3xl font-bold">Real Wallet Generation Complete</h1>
             <p className="text-muted-foreground">
-              Successfully generated {generatedBatch.wallets.length} {walletType} wallets
+              Successfully generated {generatedBatch.wallets.length} cryptographically secure {walletType} wallets
             </p>
           </div>
           <Button variant="outline" onClick={handleReset}>
@@ -566,7 +611,7 @@ const WalletCreator: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div>
                 <div className="text-2xl font-bold text-green-600">{generatedBatch.wallets.length}</div>
-                <div className="text-sm text-muted-foreground">Wallets Generated</div>
+                <div className="text-sm text-muted-foreground">Real Wallets Generated</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-blue-600">100%</div>
@@ -574,7 +619,9 @@ const WalletCreator: React.FC = () => {
               </div>
               <div>
                 <div className="text-2xl font-bold text-purple-600">{walletType.toUpperCase()}</div>
-                <div className="text-sm text-muted-foreground">Wallet Type</div>
+                <div className="text-sm text-muted-foreground">
+                  {walletType === 'hd' ? 'BIP39/BIP44' : 'Ed25519'}
+                </div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-orange-600">{network}</div>
@@ -590,11 +637,12 @@ const WalletCreator: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-amber-800">
                 <Shield className="h-5 w-5" />
-                Master Seed Phrase
-                <Badge variant="destructive" className="ml-2">Keep Secure</Badge>
+                Master Seed Phrase - REAL RECOVERY PHRASE
+                <Badge variant="destructive" className="ml-2">KEEP SECURE</Badge>
               </CardTitle>
               <CardDescription className="text-amber-700">
-                This seed phrase can recover ALL wallets below. Store it securely and never share it.
+                This BIP39 seed phrase can recover ALL {generatedBatch.wallets.length} wallets below. 
+                Store it securely offline and never share it with anyone.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -602,21 +650,37 @@ const WalletCreator: React.FC = () => {
                 <div className="grid grid-cols-3 md:grid-cols-4 gap-2 text-sm font-mono">
                   {generatedBatch.seedPhrase.map((word, index) => (
                     <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                      <span className="text-gray-500 w-5">{index + 1}.</span>
+                      <span className="text-gray-500 w-6 text-center">{index + 1}.</span>
                       <span className="font-medium">{word}</span>
                     </div>
                   ))}
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copyToClipboard(generatedBatch.mnemonic!, 'mnemonic')}
-                className="w-full"
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                Copy Seed Phrase
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyToClipboard(generatedBatch.mnemonic!, 'mnemonic')}
+                  className="flex-1"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Seed Phrase
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExport('txt')}
+                  className="flex-1"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Backup to File
+                </Button>
+              </div>
+              <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                <p className="text-red-800 text-sm font-medium">
+                  SECURITY WARNING: Anyone with this seed phrase has FULL CONTROL over all generated wallets!
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -629,7 +693,7 @@ const WalletCreator: React.FC = () => {
               Export & Integration
             </CardTitle>
             <CardDescription>
-              Export wallets or send directly to other tools
+              Export real wallets or send directly to other tools
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -703,9 +767,9 @@ const WalletCreator: React.FC = () => {
         {/* Wallet List */}
         <Card>
           <CardHeader>
-            <CardTitle>Generated Wallets</CardTitle>
+            <CardTitle>Generated Real Wallets</CardTitle>
             <CardDescription>
-              {generatedBatch.wallets.length} wallets ready for use
+              {generatedBatch.wallets.length} cryptographically secure wallets ready for use on {network}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -720,6 +784,9 @@ const WalletCreator: React.FC = () => {
                           {wallet.derivationPath}
                         </Badge>
                       )}
+                      <Badge variant="default" className="text-xs bg-green-600">
+                        REAL
+                      </Badge>
                     </div>
                     <Button
                       variant="ghost"
@@ -749,7 +816,7 @@ const WalletCreator: React.FC = () => {
                     
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span>Suggested Amount: {suggestedAmount} SOL</span>
-                      <span>Valid: ✅</span>
+                      <span>Cryptographically Generated: ✅</span>
                     </div>
                   </div>
                 </div>
@@ -763,17 +830,28 @@ const WalletCreator: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-800">
               <AlertTriangle className="h-5 w-5" />
-              Security Important
+              Critical Security Information
             </CardTitle>
           </CardHeader>
           <CardContent className="text-red-700 text-sm space-y-2">
-            <ul className="space-y-1">
-              <li>• Private keys give FULL control over wallets</li>
-              <li>• {isHD ? 'The seed phrase can recover ALL wallets above' : 'Back up each private key separately'}</li>
-              <li>• Never share private keys or seed phrases with anyone</li>
-              <li>• Store backups securely offline for production wallets</li>
-              <li>• Consider hardware wallets for large amounts</li>
-            </ul>
+            <div className="bg-white p-3 rounded border">
+              <p className="font-medium mb-2">THESE ARE REAL, FUNCTIONAL WALLETS:</p>
+              <ul className="space-y-1">
+                <li>• Private keys give FULL control over wallets and any funds sent to them</li>
+                <li>• {isHD ? 'The seed phrase above can recover ALL wallets in this batch' : 'Back up each private key separately and securely'}</li>
+                <li>• Never share private keys or seed phrases with anyone</li>
+                <li>• Store backups securely offline for production use</li>
+                <li>• Consider hardware wallets for storing significant amounts</li>
+                <li>• Test with small amounts first before using for production</li>
+              </ul>
+            </div>
+            {network === 'mainnet-beta' && (
+              <div className="bg-red-100 p-3 rounded border border-red-300">
+                <p className="font-bold text-red-900">
+                  MAINNET WARNING: These wallets are on Solana Mainnet. Any SOL or tokens sent to these addresses are REAL VALUE!
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

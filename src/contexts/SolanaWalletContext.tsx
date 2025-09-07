@@ -67,11 +67,11 @@ interface SolanaWalletProviderProps {
 // RPC endpoints
 const RPC_ENDPOINTS = {
   'mainnet-beta': [
-    { name: 'Helius', url: `https://rpc.helius.xyz/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` },
+    { name: 'Helius', url: import.meta.env.VITE_SOLANA_RPC_MAINNET },
     { name: 'Quicknode', url: 'https://api.mainnet-beta.solana.com' }
   ],
   'devnet': [
-    { name: 'Helius Devnet', url: `https://rpc-devnet.helius.xyz/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` },
+    { name: 'Helius Devnet', url: import.meta.env.VITE_SOLANA_RPC_DEVNET },
     { name: 'Solana Devnet', url: 'https://api.devnet.solana.com' }
   ]
 };

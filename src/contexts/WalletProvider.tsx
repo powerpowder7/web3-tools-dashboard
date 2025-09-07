@@ -40,11 +40,11 @@ export default function CustomWalletProvider({ children }: WalletProviderProps) 
 
   // RPC endpoint
   const endpoint = useMemo(() => {
-    if (network === WalletAdapterNetwork.Devnet) {
-      return import.meta.env.VITE_HELIUS_RPC_URL_DEVNET || clusterApiUrl(network);
-    }
-    return import.meta.env.VITE_HELIUS_RPC_URL_MAINNET || clusterApiUrl(network);
-  }, [network]);
+  if (network === WalletAdapterNetwork.Devnet) {
+    return import.meta.env.VITE_SOLANA_RPC_DEVNET || clusterApiUrl(network);
+  }
+  return import.meta.env.VITE_SOLANA_RPC_MAINNET || clusterApiUrl(network);
+}, [network]);
 
   // Wallet adapters
   const wallets = useMemo(

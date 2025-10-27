@@ -3,7 +3,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import MultiSender from './pages/solana/MultiSender';
 import WalletCreator from './pages/solana/WalletCreator';
-import TokenCreator from './pages/solana/TokenCreator';
+import TokenCreator from './pages/solana/TokenCreatorNew';
 import TokenBurner from './pages/solana/TokenBurner';
 import VanityAddress from './pages/solana/VanityAddress';
 import WalletProvider from './contexts/WalletProvider';

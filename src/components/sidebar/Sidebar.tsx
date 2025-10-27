@@ -1,6 +1,6 @@
 // src/components/sidebar/Sidebar.tsx - FIXED TYPES
 import React from 'react';
-import { X, Home, Send, Wallet, Hash, Coins, BarChart3, LucideIcon } from 'lucide-react';
+import { X, Home, Send, Wallet, Hash, Coins, BarChart3, Flame, LucideIcon } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import NetworkSection from './NetworkSection';
 import WalletButton from '@/components/common/WalletButton';
@@ -63,7 +63,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
       path: '/solana/token-creator',
       icon: Coins,
       description: 'Create SPL tokens',
-      badge: 'New'
+      badge: 'Popular'
+    },
+    {
+      name: 'Token Burner',
+      path: '/solana/token-burner',
+      icon: Flame,
+      description: 'Burn SPL tokens',
+      badge: null
     }
   ];
 

@@ -1,4 +1,4 @@
-// src/contexts/SolanaWalletContext.tsx - UNUSED IMPORTS FIXED
+// src/contexts/SolanaWalletContext.tsx - RATE LIMITING FIXED
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
@@ -64,15 +64,18 @@ interface SolanaWalletProviderProps {
   children: ReactNode;
 }
 
-// RPC endpoints
+// RPC endpoints - MULTI-FALLBACK ENABLED with Premium Providers
+// Using Alchemy demo endpoints (free tier with good CORS support for browsers)
 const RPC_ENDPOINTS = {
   'mainnet-beta': [
-    { name: 'Helius', url: import.meta.env.VITE_SOLANA_RPC_MAINNET },
-    { name: 'Quicknode', url: 'https://api.mainnet-beta.solana.com' }
+    { name: 'Alchemy Mainnet', url: import.meta.env.VITE_SOLANA_RPC_MAINNET || 'https://solana-mainnet.g.alchemy.com/v2/demo' },
+    { name: 'Ankr Mainnet', url: 'https://rpc.ankr.com/solana' },
+    { name: 'Public Mainnet', url: 'https://api.mainnet-beta.solana.com' }
   ],
   'devnet': [
-    { name: 'Helius Devnet', url: import.meta.env.VITE_SOLANA_RPC_DEVNET },
-    { name: 'Solana Devnet', url: 'https://api.devnet.solana.com' }
+    { name: 'Alchemy Devnet', url: import.meta.env.VITE_SOLANA_RPC_DEVNET || 'https://solana-devnet.g.alchemy.com/v2/demo' },
+    { name: 'Ankr Devnet', url: 'https://rpc.ankr.com/solana_devnet' },
+    { name: 'Public Devnet', url: 'https://api.devnet.solana.com' }
   ]
 };
 
@@ -119,28 +122,56 @@ export function SolanaWalletProvider({ children }: SolanaWalletProviderProps) {
     }
   }, [network]);
 
-  // Refresh balance
+  // Refresh balance with multi-RPC fallback
   const refreshBalance = useCallback(async () => {
-    if (!publicKey || !connection) return;
-
-    try {
-      const startTime = Date.now();
-      const lamports = await connection.getBalance(publicKey);
-      const solBalance = lamports / LAMPORTS_PER_SOL;
-      
-      setBalance(solBalance);
-      
-      analytics.performanceMetric({
-        name: 'balance_refresh',
-        value: Date.now() - startTime,
-        metadata: { network, balance: solBalance }
-      });
-      
-    } catch (error) {
-      console.error('Failed to refresh balance:', error);
-      analytics.captureError(error as Error, { context: 'balance_refresh' });
+    if (!publicKey) {
+      console.log('[Balance] Skipping refresh - publicKey not available');
+      return;
     }
-  }, [publicKey, connection, network]);
+
+    const endpoints = RPC_ENDPOINTS[network];
+    let lastError: Error | null = null;
+
+    // Try each RPC endpoint until one works
+    for (let i = 0; i < endpoints.length; i++) {
+      const endpoint = endpoints[i];
+
+      try {
+        console.log(`[Balance] Attempt ${i + 1}/${endpoints.length} - Using: ${endpoint.name}`);
+        const testConnection = new Connection(endpoint.url, 'confirmed');
+
+        const startTime = Date.now();
+        const lamports = await testConnection.getBalance(publicKey);
+        const solBalance = lamports / LAMPORTS_PER_SOL;
+
+        console.log(`[Balance] ✓ Success with ${endpoint.name}! Lamports:`, lamports, 'SOL:', solBalance);
+        setBalance(solBalance);
+
+        // Update connection to use the working endpoint
+        setConnection(testConnection);
+
+        analytics.performanceMetric({
+          name: 'balance_refresh',
+          value: Date.now() - startTime,
+          metadata: { network, balance: solBalance, endpoint: endpoint.name }
+        });
+
+        return; // Success - exit function
+
+      } catch (error) {
+        console.warn(`[Balance] ✗ Failed with ${endpoint.name}:`, error);
+        lastError = error as Error;
+        continue; // Try next endpoint
+      }
+    }
+
+    // All endpoints failed
+    console.error('[Balance] All RPC endpoints failed!', lastError);
+    analytics.captureError(lastError as Error, {
+      context: 'balance_refresh_all_failed',
+      endpoints: endpoints.map(e => e.name).join(', ')
+    });
+  }, [publicKey, network]);
 
   // Refresh token accounts
   const refreshTokenAccounts = useCallback(async () => {
@@ -243,15 +274,19 @@ export function SolanaWalletProvider({ children }: SolanaWalletProviderProps) {
     }
   }, [publicKey, connection, network]);
 
-  // Check RPC health
+  // Check RPC health - SIMPLIFIED to avoid rate limiting
   const checkRPCHealth = useCallback(async () => {
     const healthChecks: RPCHealth[] = [];
     
-    for (const endpoint of RPC_ENDPOINTS[network]) {
+    // Only check current network endpoint to reduce API calls
+    const currentEndpoints = RPC_ENDPOINTS[network];
+    
+    for (const endpoint of currentEndpoints) {
       try {
         const startTime = Date.now();
         const testConnection = new Connection(endpoint.url, 'confirmed');
         
+        // Simple slot check instead of expensive operations
         await testConnection.getSlot();
         
         const latency = Date.now() - startTime;
@@ -292,11 +327,15 @@ export function SolanaWalletProvider({ children }: SolanaWalletProviderProps) {
     }
   }, [connected, publicKey, refreshBalance, refreshTokenAccounts, refreshTransactionHistory]);
 
+  // FIXED: Reduced frequency to prevent rate limiting
   useEffect(() => {
-    checkRPCHealth();
-    const interval = setInterval(checkRPCHealth, 30000);
-    return () => clearInterval(interval);
-  }, [checkRPCHealth]);
+    // Only check health once on mount, then every 2 minutes instead of 30 seconds
+    if (connected) {
+      checkRPCHealth();
+      const interval = setInterval(checkRPCHealth, 120000); // Every 2 minutes
+      return () => clearInterval(interval);
+    }
+  }, [connected, network]); // Removed checkRPCHealth from dependencies to prevent recreation
 
   const value: SolanaWalletContextType = {
     publicKey,

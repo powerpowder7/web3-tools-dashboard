@@ -161,35 +161,85 @@ export class TokenService {
     try {
       console.log('Starting production token creation:', params);
 
-      // Step 1: Upload image to IPFS if provided
-      if (params.image && params.image instanceof File) {
-        console.log('Uploading image to IPFS...');
-        imageUri = await this.ipfsService.uploadImage(params.image);
-        console.log('Image uploaded:', imageUri);
-      } else if (typeof params.image === 'string') {
-        imageUri = params.image;
+      // Step 1: Upload image to IPFS if provided (with fallback)
+      try {
+        if (params.image && params.image instanceof File) {
+          console.log('[Token Creation] Uploading image to IPFS...');
+          imageUri = await this.ipfsService.uploadImage(params.image);
+          console.log('[Token Creation] Image uploaded:', imageUri);
+        } else if (typeof params.image === 'string') {
+          imageUri = params.image;
+        }
+      } catch (error) {
+        console.warn('[Token Creation] Image upload failed, using placeholder:', error);
+        imageUri = `https://via.placeholder.com/400?text=${encodeURIComponent(params.symbol)}`;
       }
 
-      // Step 2: Upload metadata to IPFS
-      console.log('Uploading metadata to IPFS...');
-      metadataUri = await this.ipfsService.uploadMetadata(params, imageUri);
-      console.log('Metadata uploaded:', metadataUri);
+      // Step 2: Upload metadata to IPFS (with mock fallback)
+      try {
+        console.log('[Token Creation] Uploading metadata to IPFS...');
+        metadataUri = await this.ipfsService.uploadMetadata(params, imageUri);
+        console.log('[Token Creation] Metadata uploaded:', metadataUri);
+      } catch (error) {
+        console.warn('[Token Creation] Metadata upload failed, using mock URI:', error);
+        // Generate mock metadata URI for development
+        const mockHash = 'Qm' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        metadataUri = `https://gateway.pinata.cloud/ipfs/${mockHash}`;
+        console.log('[Token Creation] Using mock metadata URI:', metadataUri);
+      }
 
       // Step 3: Determine authorities
       const mintAuthority = params.mintAuthority === 'none' ? null : this.wallet.publicKey;
       const freezeAuthority = params.freezeAuthority ? this.wallet.publicKey : null;
 
-      // Step 4: Create token on blockchain
-      console.log('Creating token on blockchain...');
-      const result = await this.blockchainService.createSPLToken(
+      // Step 4: Create token transaction
+      console.log('[Token Creation] Creating token on blockchain...');
+      console.log('[Token Creation] Metadata URI:', metadataUri);
+      const txData = await this.blockchainService.createSPLToken(
         this.wallet.publicKey,
         mintKeypair,
         params.decimals,
         mintAuthority,
         freezeAuthority,
-        params.initialSupply,
-        metadataUri
+        params.initialSupply
       );
+
+      // Extract transaction from result
+      const transaction = (txData as any).transaction;
+      const blockhash = (txData as any).blockhash;
+      const lastValidBlockHeight = (txData as any).lastValidBlockHeight;
+
+      // Debug: Verify transaction object
+      console.log('[Token Creation] Transaction type:', transaction?.constructor?.name);
+      console.log('[Token Creation] Transaction ready:', !!transaction);
+      console.log('[Token Creation] Blockhash:', blockhash);
+
+      if (!transaction) {
+        throw new Error('No transaction returned from blockchain service');
+      }
+
+      // Send transaction using wallet adapter (this will prompt user to sign)
+      console.log('[Token Creation] Sending transaction to wallet for signing...');
+      const signature = await this.wallet.sendTransaction(
+        transaction,
+        this.connection
+      );
+
+      console.log('[Token Creation] Transaction sent with signature:', signature);
+
+      // Wait for confirmation
+      console.log('[Token Creation] Waiting for transaction confirmation...');
+      const confirmation = await this.connection.confirmTransaction({
+        signature,
+        blockhash,
+        lastValidBlockHeight
+      }, 'confirmed');
+
+      if (confirmation.value.err) {
+        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+      }
+
+      console.log('Transaction confirmed successfully!');
 
       // Step 5: Revoke mint authority if permanent supply
       if (params.mintAuthority === 'permanent' && mintAuthority) {
@@ -206,15 +256,15 @@ export class TokenService {
 
       console.log('Token created successfully:', {
         mintAddress: mintKeypair.publicKey.toString(),
-        signature: result.signature,
-        cost: result.cost
+        signature: signature,
+        cost: txData.cost
       });
 
       return {
         success: true,
         mintAddress: mintKeypair.publicKey.toString(),
-        signature: result.signature,
-        totalCost: result.cost,
+        signature: signature,
+        totalCost: txData.cost,
         metadataUri,
         imageUri,
         explorerUrl

@@ -1,12 +1,13 @@
 // src/pages/solana/TokenCreator.tsx - Complete Production Implementation
 import React, { useState, useEffect, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+import { useSolanaWallet } from '@/contexts/SolanaWalletContext';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,16 +32,16 @@ import {
   Loader2,
   Network
 } from 'lucide-react';
-import { 
-  TokenService, 
-  TokenCreationParams, 
-  TokenCreationResult, 
-  TokenCostEstimate 
+import {
+  TokenService,
+  TokenCreationParams,
+  TokenCreationResult,
+  TokenCostEstimate
 } from '@/services/tokenService';
-import { 
+import {
   TokenIntegrationService,
   ImportFromWalletCreatorOptions,
-  GenerateVanityAddressOptions 
+  GenerateVanityAddressOptions
 } from '@/services/tokenIntegrationService';
 import { BlockchainService } from '@/services/blockchainService';
 import WalletButton from '@/components/common/WalletButton';
@@ -120,7 +121,7 @@ const TokenCreator: React.FC = () => {
   // Real-time cost estimation with blockchain data
   const updateCostEstimate = useCallback(async () => {
     if (!connected || !formData.name || !formData.symbol) return;
-    
+
     try {
       const estimate = await tokenService.estimateCreationCost(formData);
       setCostEstimate(estimate);
@@ -129,13 +130,14 @@ const TokenCreator: React.FC = () => {
     }
   }, [connected, formData, tokenService]);
 
+  // Enable real-time cost estimation with debouncing
   useEffect(() => {
     const timer = setTimeout(() => {
       updateCostEstimate();
     }, 500); // Debounce cost estimation
 
     return () => clearTimeout(timer);
-  }, [updateCostEstimate]);
+  }, [updateCostEstimate]); 
 
   // Real-time form validation
   useEffect(() => {
@@ -1317,38 +1319,17 @@ const TokenCreator: React.FC = () => {
   );
 };
 
-// Production Helper Components - FIXED VERSIONS
-const WalletBalanceDisplay: React.FC<{ publicKey: any }> = ({ publicKey }) => {
-  const { connection } = useConnection();
-  const [balance, setBalance] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+// Production Helper Components - USES CONTEXT BALANCE
+const WalletBalanceDisplay: React.FC<{ publicKey: any }> = () => {
+  // Use the balance from SolanaWalletContext which has multi-RPC fallback
+  const walletContext = useSolanaWallet();
+  const balance = walletContext?.balance ?? 0;
 
-  useEffect(() => {
-    const getBalance = async () => {
-      if (!publicKey) return;
-      
-      setIsLoading(true);
-      try {
-        const balance = await connection.getBalance(publicKey);
-        setBalance(balance / 1e9); // Convert lamports to SOL
-      } catch (error) {
-        console.error('Failed to get balance:', error);
-        setBalance(0);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    getBalance();
-  }, [connection, publicKey]);
-
-  if (isLoading) {
-    return <span className="text-sm text-gray-500">Loading...</span>;
-  }
+  console.log('[WalletBalanceDisplay] Rendering with balance:', balance);
 
   return (
-    <span className={`text-sm font-medium ${balance && balance < 0.01 ? 'text-red-600' : 'text-green-600'}`}>
-      {balance ? balance.toFixed(4) : '0.0000'} SOL
+    <span className={`text-sm font-medium ${balance < 0.01 ? 'text-red-600' : 'text-green-600'}`}>
+      {balance.toFixed(4)} SOL
     </span>
   );
 };

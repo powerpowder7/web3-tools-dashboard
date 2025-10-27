@@ -127,6 +127,7 @@ const WelcomeBanner: React.FC<WelcomeBannerProps> = ({ onDismiss, isNewUser }) =
               </p>
               <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                 <li>• Use Multi-Sender to send SOL/tokens to multiple addresses</li>
+                <li>• Create and burn SPL tokens with Token Creator/Burner</li>
                 <li>• Generate custom vanity addresses with specific patterns</li>
                 <li>• Create new wallets in bulk for your projects</li>
               </ul>
@@ -240,6 +241,7 @@ const AwardWinningDashboard: React.FC = () => {
               <li>• Wallet Creator - Generate multiple wallets</li>
               <li>• Vanity Address - Custom address patterns</li>
               <li>• Token Creator - Deploy SPL tokens</li>
+              <li>• Token Burner - Burn SPL tokens</li>
             </ul>
           </div>
         </div>

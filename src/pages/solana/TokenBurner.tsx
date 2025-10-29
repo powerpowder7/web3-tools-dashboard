@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import {
   Flame,
   AlertTriangle,
@@ -520,22 +521,18 @@ const TokenBurner: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Amount to Burn
-              </label>
-              <Input
-                type="number"
+              <NumberInput
+                label="Amount to Burn"
+                description="Enter the exact amount of tokens to permanently destroy"
                 placeholder="Enter amount to burn..."
-                min="0"
-                step="any"
-                value={burnAmount}
-                onChange={(e) => setBurnAmount(e.target.value)}
+                min={0}
+                value={burnAmount ? parseFloat(burnAmount) : undefined}
+                onChange={(val) => setBurnAmount(val?.toString() || '')}
+                allowDecimal={true}
+                allowEmpty={true}
                 disabled={!tokenInfo.isLoaded || tokenInfo.userBalance === 0 || burnStatus.status === 'loading' || burnStatus.status === 'confirming'}
               />
               <div className="flex justify-between items-center mt-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Enter the exact amount of tokens to permanently destroy
-                </p>
                 {tokenInfo.isLoaded && tokenInfo.userBalance > 0 && (
                   <Button
                     variant="link"

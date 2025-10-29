@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { NumberInput } from '@/components/ui/number-input';
 import { useSolanaWallet } from '@/contexts/SolanaWalletContext';
 import analytics from '@/services/analytics';
 import { 
@@ -942,19 +943,17 @@ const MultiSender: React.FC = () => {
                               </div>
                             </div>
                             
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Amount ({transferType === 'sol' ? 'SOL' : selectedToken?.symbol || 'Tokens'})
-                              </label>
-                              <Input
-                                type="number"
-                                step={transferType === 'sol' ? '0.001' : '0.000001'}
-                                min="0"
-                                placeholder="0.000"
-                                value={recipient.amount || ''}
-                                onChange={(e) => updateRecipient(recipient.id, 'amount', parseFloat(e.target.value) || 0)}
-                              />
-                            </div>
+                            <NumberInput
+                              label={`Amount (${transferType === 'sol' ? 'SOL' : selectedToken?.symbol || 'Tokens'})`}
+                              min={0}
+                              step={transferType === 'sol' ? 0.001 : 0.000001}
+                              value={recipient.amount || undefined}
+                              onChange={(val) => updateRecipient(recipient.id, 'amount', val ?? 0)}
+                              allowDecimal={true}
+                              allowEmpty={false}
+                              placeholder="0.000"
+                              unit={transferType === 'sol' ? 'SOL' : selectedToken?.symbol || ''}
+                            />
                           </div>
                           
                           <div className="space-y-2">

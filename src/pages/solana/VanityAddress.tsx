@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { 
   Search, 
   Clock, 
@@ -387,19 +388,17 @@ const VanityGenerator: React.FC = () => {
                 </label>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Max Attempts
-                </label>
-                <Input
-                  type="number"
-                  value={maxAttempts}
-                  onChange={(e) => setMaxAttempts(Number(e.target.value))}
-                  min="1000"
-                  max="100000000"
-                  step="1000"
-                />
-              </div>
+              <NumberInput
+                label="Max Attempts"
+                description="Maximum number of wallet generation attempts"
+                value={maxAttempts}
+                onChange={(val) => setMaxAttempts(val ?? 1000000)}
+                min={1000}
+                max={100000000}
+                step={1000}
+                allowDecimal={false}
+                allowEmpty={false}
+              />
 
               {(prefixPattern || suffixPattern) && (
                 <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">

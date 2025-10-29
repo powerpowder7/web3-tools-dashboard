@@ -30,7 +30,9 @@ import {
   Globe,
   Users,
   Loader2,
-  Network
+  Network,
+  Lock,
+  AlertTriangle
 } from 'lucide-react';
 import {
   TokenService,
@@ -46,6 +48,9 @@ import {
 import { BlockchainService } from '@/services/blockchainService';
 import WalletButton from '@/components/common/WalletButton';
 import analytics from '@/services/analytics';
+import { SecurityDashboard } from '@/components/security/SecurityDashboard';
+import { QualityScore, RiskAssessment } from '@/services/securityService';
+import type { AntiSnipeLevel } from '@/services/antiSnipeService';
 
 interface FormData extends TokenCreationParams {
   imageFile?: File;
@@ -74,7 +79,12 @@ const TokenCreator: React.FC = () => {
     nonTransferable: false,
     pumpFunIntegration: false,
     createRaydiumPool: false,
-    protocol: 'spl'
+    protocol: 'spl',
+    // Security features
+    jitoProtection: false,
+    jitoTipAmount: 0.001,
+    antiSnipeLevel: 'none',
+    enableSecurityScan: true
   });
 
   // UI state
@@ -92,11 +102,15 @@ const TokenCreator: React.FC = () => {
   const [importedWallets, setImportedWallets] = useState<string[]>([]);
   const [vanityAddresses, setVanityAddresses] = useState<string[]>([]);
   const [showIntegrations, setShowIntegrations] = useState(false);
-  
+
   // Production blockchain state
   const [networkHealth, setNetworkHealth] = useState<any>(null);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [transactionStatus, setTransactionStatus] = useState<string>('');
+
+  // Security state
+  const [_securityScore, setSecurityScore] = useState<QualityScore | null>(null);
+  const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
 
   // Initialize production services
   const tokenService = new TokenService(connection, { publicKey, sendTransaction });
@@ -745,7 +759,7 @@ const TokenCreator: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Platform Integrations
                 </label>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="font-medium flex items-center">
@@ -760,6 +774,119 @@ const TokenCreator: React.FC = () => {
                     onChange={(e) => handleInputChange('pumpFunIntegration', e.target.checked)}
                     className="h-4 w-4 text-blue-600"
                   />
+                </div>
+              </div>
+
+              {/* Security & Protection Section */}
+              <div className="space-y-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                <div className="flex items-center gap-2 mb-4">
+                  <Shield className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <h3 className="font-semibold text-green-800 dark:text-green-200">Security & Protection</h3>
+                  <Badge variant="outline" className="ml-auto bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
+                    Premium
+                  </Badge>
+                </div>
+
+                {/* Security Scan Toggle */}
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div>
+                    <label className="font-medium flex items-center text-gray-900 dark:text-gray-100">
+                      <Shield className="w-4 h-4 mr-2 text-blue-600" />
+                      Enable Security Scan
+                    </label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Real-time security analysis (FREE)
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formData.enableSecurityScan}
+                    onChange={(e) => handleInputChange('enableSecurityScan', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 rounded"
+                  />
+                </div>
+
+                {/* JITO MEV Protection */}
+                <div className="space-y-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="font-medium flex items-center text-gray-900 dark:text-gray-100">
+                        <Zap className="w-4 h-4 mr-2 text-yellow-600" />
+                        MEV Protection (JITO Bundles)
+                      </label>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Protect against front-running attacks
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={formData.jitoProtection}
+                      onChange={(e) => handleInputChange('jitoProtection', e.target.checked)}
+                      className="h-4 w-4 text-yellow-600 rounded"
+                    />
+                  </div>
+
+                  {formData.jitoProtection && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Bundle Tip Amount (SOL)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.001"
+                        min="0.001"
+                        max="0.1"
+                        value={formData.jitoTipAmount || 0.001}
+                        onChange={(e) => handleInputChange('jitoTipAmount', parseFloat(e.target.value) || 0.001)}
+                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Higher tips increase priority. Recommended: 0.001-0.01 SOL
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Anti-Snipe Protection */}
+                <div className="space-y-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <label className="font-medium flex items-center text-gray-900 dark:text-gray-100">
+                    <Lock className="w-4 h-4 mr-2 text-purple-600" />
+                    Anti-Snipe Protection
+                  </label>
+                  <select
+                    value={formData.antiSnipeLevel || 'none'}
+                    onChange={(e) => handleInputChange('antiSnipeLevel', e.target.value as AntiSnipeLevel)}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="none">No Protection</option>
+                    <option value="basic">Basic (5 min delay)</option>
+                    <option value="standard">Standard (15 min delay + limits)</option>
+                    <option value="advanced">Advanced (30 min + whitelist)</option>
+                  </select>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                    {formData.antiSnipeLevel === 'basic' && (
+                      <p>• 5 min launch delay • 5% max wallet • Bot blacklist</p>
+                    )}
+                    {formData.antiSnipeLevel === 'standard' && (
+                      <p>• 15 min launch delay • 3% max wallet • Bot protection • 5 min monitoring</p>
+                    )}
+                    {formData.antiSnipeLevel === 'advanced' && (
+                      <p>• 30 min launch delay • 2% max wallet • Whitelist support • 10 min monitoring</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Security Info Box */}
+                <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <p className="font-medium mb-1">Security Features Help</p>
+                    <ul className="space-y-1 text-xs">
+                      <li>• <strong>Security Scan:</strong> Analyzes your token for common risks</li>
+                      <li>• <strong>MEV Protection:</strong> Prevents sandwich attacks at launch</li>
+                      <li>• <strong>Anti-Snipe:</strong> Delays launch to prevent bot sniping</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -794,10 +921,41 @@ const TokenCreator: React.FC = () => {
 
               {/* Real-time Balance Check */}
               {connected && publicKey && (
-                <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Wallet Balance:</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Wallet Balance:</span>
                     <WalletBalanceDisplay publicKey={publicKey} />
+                  </div>
+                </div>
+              )}
+
+              {/* Security Dashboard */}
+              {formData.enableSecurityScan && (
+                <SecurityDashboard
+                  tokenConfig={formData}
+                  onScoreUpdate={(score) => setSecurityScore(score)}
+                  onRiskUpdate={(risks) => setRiskAssessment(risks)}
+                />
+              )}
+
+              {/* Security Warning */}
+              {riskAssessment && riskAssessment.riskLevel === 'critical' && (
+                <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">
+                        Critical Security Issues Detected
+                      </h4>
+                      <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+                        {riskAssessment.criticalIssues.map((issue, idx) => (
+                          <li key={idx}>• {issue}</li>
+                        ))}
+                      </ul>
+                      <p className="text-sm text-red-600 dark:text-red-400 mt-2 font-medium">
+                        ⚠️ Please review and fix these issues before creating your token.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1050,6 +1208,64 @@ const TokenCreator: React.FC = () => {
                           </div>
                         </div>
                       )}
+
+                      {/* JITO Bundle ID */}
+                      {creationResult.bundleId && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-yellow-600" />
+                            JITO Bundle ID
+                          </label>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <code className="bg-yellow-50 border border-yellow-200 px-2 py-1 rounded text-sm font-mono flex-1">
+                              {creationResult.bundleId}
+                            </code>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => navigator.clipboard.writeText(creationResult.bundleId!)}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-green-600 mt-1">
+                            ✓ MEV Protection Active
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Security Score */}
+                      {creationResult.securityScore && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                            <Shield className="w-4 h-4 text-blue-600" />
+                            Security Score
+                          </label>
+                          <div className="flex items-center gap-3 mt-2">
+                            <div className={`text-3xl font-bold ${
+                              creationResult.securityScore.overall >= 85 ? 'text-green-600' :
+                              creationResult.securityScore.overall >= 70 ? 'text-blue-600' :
+                              creationResult.securityScore.overall >= 55 ? 'text-yellow-600' :
+                              'text-orange-600'
+                            }`}>
+                              {creationResult.securityScore.overall}
+                            </div>
+                            <div>
+                              <div className={`px-2 py-1 rounded font-bold ${
+                                creationResult.securityScore.grade.startsWith('A') ? 'bg-green-100 text-green-800' :
+                                creationResult.securityScore.grade === 'B' ? 'bg-blue-100 text-blue-800' :
+                                creationResult.securityScore.grade === 'C' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-orange-100 text-orange-800'
+                              }`}>
+                                Grade: {creationResult.securityScore.grade}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {creationResult.riskAssessment?.riskLevel} risk
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1244,6 +1460,8 @@ const TokenCreator: React.FC = () => {
                     setCurrentStep(1);
                     setCreationResult(null);
                     setTransactionStatus('');
+                    setSecurityScore(null);
+                    setRiskAssessment(null);
                     setFormData({
                       name: '',
                       symbol: '',
@@ -1261,7 +1479,12 @@ const TokenCreator: React.FC = () => {
                       nonTransferable: false,
                       pumpFunIntegration: false,
                       createRaydiumPool: false,
-                      protocol: 'spl'
+                      protocol: 'spl',
+                      // Security features
+                      jitoProtection: false,
+                      jitoTipAmount: 0.001,
+                      antiSnipeLevel: 'none',
+                      enableSecurityScan: true
                     });
                   }}
                   variant="outline"

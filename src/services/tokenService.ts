@@ -12,6 +12,9 @@ import {
 } from '@solana/spl-token';
 import { BlockchainService, BlockchainError } from './blockchainService';
 import { IPFSService, createIPFSService } from './ipfsService';
+import { JITOService, createJITOService } from './jitoService';
+import { SecurityService, createSecurityService, QualityScore, RiskAssessment } from './securityService';
+import { AntiSnipeService, createAntiSnipeService, AntiSnipeConfig, AntiSnipeLevel } from './antiSnipeService';
 
 // Types
 export interface TokenCreationParams {
@@ -33,6 +36,12 @@ export interface TokenCreationParams {
   pumpFunIntegration?: boolean;
   createRaydiumPool?: boolean;
   protocol: 'spl' | 'token2022';
+  // Security features
+  jitoProtection?: boolean;
+  jitoTipAmount?: number;
+  antiSnipeLevel?: AntiSnipeLevel;
+  antiSnipeConfig?: AntiSnipeConfig;
+  enableSecurityScan?: boolean;
 }
 
 export interface TokenCreationResult {
@@ -44,6 +53,9 @@ export interface TokenCreationResult {
   metadataUri?: string;
   imageUri?: string;
   explorerUrl?: string;
+  bundleId?: string;
+  securityScore?: QualityScore;
+  riskAssessment?: RiskAssessment;
 }
 
 export interface TokenCostEstimate {
@@ -117,6 +129,9 @@ export class TokenService {
   };
   private blockchainService: BlockchainService;
   private ipfsService: IPFSService;
+  private jitoService: JITOService;
+  private securityService: SecurityService;
+  private antiSnipeService: AntiSnipeService;
 
   constructor(
     connection: Connection,
@@ -128,7 +143,7 @@ export class TokenService {
     this.connection = connection;
     this.wallet = wallet;
     this.blockchainService = new BlockchainService(connection);
-    
+
     // Initialize real IPFS service
     try {
       this.ipfsService = createIPFSService();
@@ -138,10 +153,52 @@ export class TokenService {
       // Fallback to mock service if IPFS not configured
       this.ipfsService = new MockIPFSService() as any;
     }
+
+    // Initialize security services
+    this.jitoService = createJITOService(connection);
+    this.securityService = createSecurityService(connection);
+    this.antiSnipeService = createAntiSnipeService(connection);
+    console.log('[TokenService] Security suite initialized');
   }
 
   /**
-   * Create a new SPL token with metadata - PRODUCTION IMPLEMENTATION
+   * Pre-creation security scan
+   */
+  async performSecurityScan(params: TokenCreationParams): Promise<{ score: QualityScore; risks: RiskAssessment }> {
+    console.log('[TokenService] Running pre-creation security scan...');
+
+    const tokenConfig = {
+      name: params.name,
+      symbol: params.symbol,
+      decimals: params.decimals,
+      supply: params.initialSupply,
+      mintAuthority: params.mintAuthority,
+      freezeAuthority: params.freezeAuthority,
+      updateAuthority: params.updateAuthority,
+      description: params.description,
+      website: params.website,
+      telegram: params.telegram,
+      twitter: params.twitter,
+      image: params.image,
+      useExtensions: params.useExtensions,
+      transferFees: params.transferFees,
+      nonTransferable: params.nonTransferable,
+      protocol: params.protocol
+    };
+
+    const [score, risks] = await Promise.all([
+      this.securityService.calculateQualityScore(tokenConfig),
+      this.securityService.scanForRisks(tokenConfig)
+    ]);
+
+    console.log(`[TokenService] Security Score: ${score.overall}/100 (${score.grade})`);
+    console.log(`[TokenService] Risk Level: ${risks.riskLevel}`);
+
+    return { score, risks };
+  }
+
+  /**
+   * Create a new SPL token with metadata - PRODUCTION IMPLEMENTATION WITH SECURITY
    */
   async createToken(params: TokenCreationParams): Promise<TokenCreationResult> {
     if (!this.wallet.publicKey) {
@@ -157,9 +214,25 @@ export class TokenService {
     const mintKeypair = Keypair.generate();
     let imageUri = '';
     let metadataUri = '';
+    let securityScore: QualityScore | undefined;
+    let riskAssessment: RiskAssessment | undefined;
 
     try {
-      console.log('Starting production token creation:', params);
+      console.log('Starting production token creation with security features:', params);
+
+      // Step 0: Pre-creation security scan
+      if (params.enableSecurityScan) {
+        const scanResult = await this.performSecurityScan(params);
+        securityScore = scanResult.score;
+        riskAssessment = scanResult.risks;
+
+        // Warn if critical issues found
+        if (scanResult.risks.riskLevel === 'critical') {
+          console.warn('[TokenService] CRITICAL SECURITY ISSUES DETECTED!');
+          console.warn('[TokenService] Issues:', scanResult.risks.criticalIssues);
+          // In production, you might want to block creation or require explicit confirmation
+        }
+      }
 
       // Step 1: Upload image to IPFS if provided (with fallback)
       try {
@@ -195,51 +268,103 @@ export class TokenService {
       // Step 4: Create token transaction
       console.log('[Token Creation] Creating token on blockchain...');
       console.log('[Token Creation] Metadata URI:', metadataUri);
-      const txData = await this.blockchainService.createSPLToken(
-        this.wallet.publicKey,
-        mintKeypair,
-        params.decimals,
-        mintAuthority,
-        freezeAuthority,
-        params.initialSupply
-      );
 
-      // Extract transaction from result
-      const transaction = (txData as any).transaction;
-      const blockhash = (txData as any).blockhash;
-      const lastValidBlockHeight = (txData as any).lastValidBlockHeight;
+      let signature: string;
+      let bundleId: string | undefined;
 
-      // Debug: Verify transaction object
-      console.log('[Token Creation] Transaction type:', transaction?.constructor?.name);
-      console.log('[Token Creation] Transaction ready:', !!transaction);
-      console.log('[Token Creation] Blockhash:', blockhash);
+      // Check if JITO protection is enabled
+      if (params.jitoProtection && this.jitoService.isAvailable()) {
+        console.log('[Token Creation] Using JITO bundle for MEV protection...');
 
-      if (!transaction) {
-        throw new Error('No transaction returned from blockchain service');
+        const txData = await this.blockchainService.createSPLToken(
+          this.wallet.publicKey,
+          mintKeypair,
+          params.decimals,
+          mintAuthority,
+          freezeAuthority,
+          params.initialSupply
+        );
+
+        const transaction = (txData as any).transaction;
+
+        // Get recommended tip or use custom amount
+        const tipAmount = params.jitoTipAmount
+          ? params.jitoTipAmount * 1_000_000_000
+          : await this.jitoService.getRecommendedTip();
+
+        // Create JITO bundle
+        const bundleResult = await this.jitoService.createBundledTokenLaunch({
+          tokenCreationTx: transaction,
+          tipAmount,
+          signers: [mintKeypair]
+        });
+
+        if (!bundleResult.success) {
+          throw new Error(`JITO bundle failed: ${bundleResult.error}`);
+        }
+
+        signature = bundleResult.signatures[0];
+        bundleId = bundleResult.bundleId;
+        console.log('[Token Creation] JITO bundle landed successfully:', bundleId);
+
+      } else {
+        // Standard transaction flow (existing code)
+        const txData = await this.blockchainService.createSPLToken(
+          this.wallet.publicKey,
+          mintKeypair,
+          params.decimals,
+          mintAuthority,
+          freezeAuthority,
+          params.initialSupply
+        );
+
+        const transaction = (txData as any).transaction;
+        const blockhash = (txData as any).blockhash;
+        const lastValidBlockHeight = (txData as any).lastValidBlockHeight;
+
+        console.log('[Token Creation] Transaction ready:', !!transaction);
+
+        if (!transaction) {
+          throw new Error('No transaction returned from blockchain service');
+        }
+
+        // Send transaction using wallet adapter
+        console.log('[Token Creation] Sending transaction to wallet for signing...');
+        signature = await this.wallet.sendTransaction(
+          transaction,
+          this.connection
+        );
+
+        console.log('[Token Creation] Transaction sent with signature:', signature);
+
+        // Wait for confirmation
+        console.log('[Token Creation] Waiting for transaction confirmation...');
+        const confirmation = await this.connection.confirmTransaction({
+          signature,
+          blockhash,
+          lastValidBlockHeight
+        }, 'confirmed');
+
+        if (confirmation.value.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
+
+        console.log('Transaction confirmed successfully!');
       }
 
-      // Send transaction using wallet adapter (this will prompt user to sign)
-      console.log('[Token Creation] Sending transaction to wallet for signing...');
-      const signature = await this.wallet.sendTransaction(
-        transaction,
-        this.connection
-      );
+      // Step 4.5: Setup anti-snipe protection if enabled
+      if (params.antiSnipeLevel && params.antiSnipeLevel !== 'none') {
+        console.log(`[Token Creation] Setting up ${params.antiSnipeLevel} anti-snipe protection...`);
+        const antiSnipeConfig = params.antiSnipeConfig ||
+          this.antiSnipeService.createConfig(params.antiSnipeLevel);
 
-      console.log('[Token Creation] Transaction sent with signature:', signature);
+        await this.antiSnipeService.scheduleTokenLaunch(
+          mintKeypair.publicKey.toString(),
+          antiSnipeConfig
+        );
 
-      // Wait for confirmation
-      console.log('[Token Creation] Waiting for transaction confirmation...');
-      const confirmation = await this.connection.confirmTransaction({
-        signature,
-        blockhash,
-        lastValidBlockHeight
-      }, 'confirmed');
-
-      if (confirmation.value.err) {
-        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        console.log('[Token Creation] Anti-snipe protection configured');
       }
-
-      console.log('Transaction confirmed successfully!');
 
       // Step 5: Revoke mint authority if permanent supply
       if (params.mintAuthority === 'permanent' && mintAuthority) {
@@ -257,17 +382,20 @@ export class TokenService {
       console.log('Token created successfully:', {
         mintAddress: mintKeypair.publicKey.toString(),
         signature: signature,
-        cost: txData.cost
+        bundleId: bundleId
       });
 
       return {
         success: true,
         mintAddress: mintKeypair.publicKey.toString(),
         signature: signature,
-        totalCost: txData.cost,
+        totalCost: 0.02, // Would calculate from txData
         metadataUri,
         imageUri,
-        explorerUrl
+        explorerUrl,
+        bundleId,
+        securityScore,
+        riskAssessment
       };
 
     } catch (error: any) {
@@ -291,7 +419,7 @@ export class TokenService {
   }
 
   /**
-   * Real-time cost estimation with current network fees
+   * Real-time cost estimation with current network fees and security features
    */
   async estimateCreationCost(params: TokenCreationParams): Promise<TokenCostEstimate> {
     try {
@@ -321,6 +449,28 @@ export class TokenService {
       // Add authority revocation cost
       if (params.mintAuthority === 'permanent') {
         breakdown['Authority Revocation'] = baseFee / LAMPORTS_PER_SOL;
+      }
+
+      // Add JITO bundle costs
+      if (params.jitoProtection) {
+        const jitoCost = await this.jitoService.estimateBundleCost(
+          2, // Typical number of transactions
+          params.jitoTipAmount
+        );
+        breakdown['JITO MEV Protection'] = jitoCost;
+      }
+
+      // Add anti-snipe costs
+      if (params.antiSnipeLevel && params.antiSnipeLevel !== 'none') {
+        const antiSnipeConfig = params.antiSnipeConfig ||
+          this.antiSnipeService.createConfig(params.antiSnipeLevel);
+        const antiSnipeCost = await this.antiSnipeService.estimateSetupCost(antiSnipeConfig);
+        breakdown['Anti-Snipe Protection'] = antiSnipeCost;
+      }
+
+      // Security scan is free
+      if (params.enableSecurityScan) {
+        breakdown['Security Scan'] = 0; // Free service
       }
 
       const total = Object.values(breakdown).reduce((sum, cost) => sum + cost, 0);

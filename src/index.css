@@ -4,48 +4,124 @@
 
 @layer base {
   :root {
+    /* Base colors - Light Mode */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
+
+    /* UI element colors */
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    /* State colors */
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 355.7 100% 97.3%;
+    --warning: 38.4 92.1% 50.2%;
+    --warning-foreground: 48 96% 89%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --info: 221.2 83.2% 53.3%;
+    --info-foreground: 210 40% 98%;
+
+    /* Interactive elements */
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    /* Borders and separators */
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 262.1 83.3% 57.8%;
+
+    /* Cards and surfaces */
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+
+    /* Web3-specific colors */
+    --blockchain: 142.1 76.2% 36.3%;
+    --transaction: 221.2 83.2% 53.3%;
+    --wallet: 262.1 83.3% 57.8%;
+    --token: 38.4 92.1% 50.2%;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(262.1 83.3% 57.8%) 0%, hsl(221.2 83.2% 53.3%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(210 40% 96.1%) 0%, hsl(214.3 31.8% 91.4%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142.1 76.2% 36.3%) 0%, hsl(134.1 76.2% 46.3%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(38.4 92.1% 50.2%) 0%, hsl(32.4 92.1% 60.2%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(210 40% 96.1%) 0%, hsl(220 40% 94%) 100%);
+
+    /* Border radius */
     --radius: 0.5rem;
   }
 
   .dark {
+    /* Base colors - Dark Mode */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
+
+    /* UI element colors */
+    --primary: 263.4 70% 50.4%;
+    --primary-foreground: 210 40% 98%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
+
+    /* State colors */
+    --success: 142.1 70.6% 45.3%;
+    --success-foreground: 144.9 80.4% 10%;
+    --warning: 38.4 92.1% 50.2%;
+    --warning-foreground: 48 96% 89%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --info: 217.2 91.2% 59.8%;
+    --info-foreground: 210 40% 98%;
+
+    /* Interactive elements */
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+
+    /* Borders and separators */
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
+    --ring: 263.4 70% 50.4%;
+
+    /* Cards and surfaces */
+    --card: 222.2 47.4% 11.2%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Web3-specific dark colors */
+    --blockchain: 142.1 70.6% 45.3%;
+    --transaction: 217.2 91.2% 59.8%;
+    --wallet: 263.4 70% 50.4%;
+    --token: 48 96% 76.9%;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.75);
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(263.4 70% 50.4%) 0%, hsl(217.2 91.2% 59.8%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(217.2 32.6% 17.5%) 0%, hsl(217.2 32.6% 27.5%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142.1 70.6% 45.3%) 0%, hsl(134.1 70.6% 55.3%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(38.4 92.1% 50.2%) 0%, hsl(48 96% 76.9%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(217.2 32.6% 17.5%) 0%, hsl(217.2 32.6% 25%) 100%);
   }
 }
 
@@ -53,8 +129,44 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Smooth theme transitions */
+  *,
+  *::before,
+  *::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-duration: 300ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-md;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-accent;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    @apply bg-accent;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground;
   }
 }
 
@@ -63,19 +175,19 @@
   .loading-dot {
     @apply w-2 h-2 bg-current rounded-full animate-pulse;
   }
-  
+
   .loading-dots {
     @apply flex space-x-1;
   }
-  
+
   .loading-dots .loading-dot:nth-child(1) {
     animation-delay: 0ms;
   }
-  
+
   .loading-dots .loading-dot:nth-child(2) {
     animation-delay: 150ms;
   }
-  
+
   .loading-dots .loading-dot:nth-child(3) {
     animation-delay: 300ms;
   }
@@ -84,7 +196,7 @@
   .wallet-connecting {
     @apply animate-pulse;
   }
-  
+
   .wallet-connected {
     @apply animate-none;
   }
@@ -93,7 +205,7 @@
   .status-pulse {
     animation: status-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
-  
+
   @keyframes status-pulse {
     0%, 100% {
       opacity: 1;
@@ -107,7 +219,7 @@
   .fade-in {
     animation: fadeIn 0.3s ease-in-out;
   }
-  
+
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -117,5 +229,56 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  /* Gradient backgrounds */
+  .bg-gradient-primary {
+    background-image: var(--gradient-primary);
+  }
+
+  .bg-gradient-secondary {
+    background-image: var(--gradient-secondary);
+  }
+
+  .bg-gradient-success {
+    background-image: var(--gradient-success);
+  }
+
+  .bg-gradient-warning {
+    background-image: var(--gradient-warning);
+  }
+
+  .bg-gradient-accent {
+    background-image: var(--gradient-accent);
+  }
+
+  /* Web3-specific utilities */
+  .blockchain-connected {
+    @apply text-blockchain;
+  }
+
+  .blockchain-disconnected {
+    @apply text-destructive;
+  }
+
+  .transaction-pending {
+    @apply text-transaction animate-pulse;
+  }
+
+  .transaction-confirmed {
+    @apply text-success;
+  }
+
+  .transaction-failed {
+    @apply text-destructive;
+  }
+
+  /* Card with themed shadow */
+  .card-themed {
+    box-shadow: var(--shadow-md);
+  }
+
+  .card-themed:hover {
+    box-shadow: var(--shadow-lg);
   }
 }

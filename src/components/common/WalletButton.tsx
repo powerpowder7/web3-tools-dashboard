@@ -88,28 +88,28 @@ const WalletButton = () => {
     return (
       <div className="w-full space-y-2">
         {/* Main wallet button */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+        <div className="bg-success/10 border border-success/20 rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <Wallet className="w-4 h-4 text-green-600" />
-              <span className="font-medium text-green-800">
+              <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+              <Wallet className="w-4 h-4 text-success" />
+              <span className="font-medium text-success">
                 {formatAddress(publicKey.toBase58())}
               </span>
             </div>
-            <ChevronDown className="w-4 h-4 text-green-600" />
+            <ChevronDown className="w-4 h-4 text-success" />
           </div>
 
           {/* Wallet Info */}
           <div className="space-y-2 mb-3">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-600">Wallet</span>
-              <span className="font-medium">{wallet?.adapter?.name || 'Unknown'}</span>
+              <span className="text-muted-foreground">Wallet</span>
+              <span className="font-medium text-foreground">{wallet?.adapter?.name || 'Unknown'}</span>
             </div>
-            
+
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-600">Balance</span>
-              <span className="font-medium">
+              <span className="text-muted-foreground">Balance</span>
+              <span className="font-medium text-foreground">
                 {typeof balance === 'number' ? `${balance.toFixed(4)} SOL` : 'Loading...'}
               </span>
             </div>
@@ -121,27 +121,27 @@ const WalletButton = () => {
               variant="ghost"
               size="sm"
               onClick={handleCopyAddress}
-              className="text-xs p-2"
+              className="text-xs p-2 hover:bg-accent"
             >
               <Copy className="w-3 h-3 mr-1" />
               Copy
             </Button>
-            
+
             <Button
               variant="ghost"
               size="sm"
               onClick={handleViewExplorer}
-              className="text-xs p-2"
+              className="text-xs p-2 hover:bg-accent"
             >
               <ExternalLink className="w-3 h-3 mr-1" />
               Explorer
             </Button>
-            
+
             <Button
               variant="ghost"
               size="sm"
               onClick={handleDisconnect}
-              className="text-xs p-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="text-xs p-2 text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               <LogOut className="w-3 h-3 mr-1" />
               Disconnect
@@ -151,8 +151,8 @@ const WalletButton = () => {
 
         {/* Network indicator */}
         <div className="flex items-center justify-center">
-          <Badge 
-            variant={network === 'devnet' ? 'default' : 'destructive'} 
+          <Badge
+            variant={network === 'devnet' ? 'default' : 'destructive'}
             className="text-xs"
           >
             {network === 'devnet' ? 'Devnet' : 'Mainnet'}

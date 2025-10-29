@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npm run build:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Read(//c/Users/DELL/OneDrive/Desktop/**)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

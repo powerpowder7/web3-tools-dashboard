@@ -1,9 +1,10 @@
 // src/components/sidebar/Sidebar.tsx - FIXED TYPES
 import React from 'react';
-import { X, Home, Send, Wallet, Hash, Coins, BarChart3, Flame, LucideIcon } from 'lucide-react';
+import { X, Home, Send, Wallet, Hash, Coins, BarChart3, Flame, BookOpen, LucideIcon } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import NetworkSection from './NetworkSection';
 import WalletButton from '@/components/common/WalletButton';
+import { ThemeToggle } from '../theme/ThemeToggle';
 import analytics from '@/services/analytics';
 
 // Fixed Props Interface
@@ -71,6 +72,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
       icon: Flame,
       description: 'Burn SPL tokens',
       badge: null
+    },
+    {
+      name: 'Tutorials',
+      path: '/tutorials',
+      icon: BookOpen,
+      description: 'Interactive learning guides',
+      badge: 'New'
     }
   ];
 
@@ -85,31 +93,31 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
   ];
 
   return (
-    <div className="h-full flex flex-col bg-white border-r border-gray-200">
+    <div className="h-full flex flex-col bg-card border-r border-border">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">W3</span>
             </div>
-            <span className="font-semibold text-gray-900">Web3Tools</span>
+            <span className="font-semibold text-foreground">Web3Tools</span>
           </div>
           {/* Close button - only show if onClose is provided (mobile) */}
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1 rounded-lg hover:bg-gray-100 lg:hidden"
+              className="p-1 rounded-lg hover:bg-accent lg:hidden"
               aria-label="Close sidebar"
             >
-              <X className="w-5 h-5 text-gray-500" />
+              <X className="w-5 h-5 text-muted-foreground" />
             </button>
           )}
         </div>
       </div>
 
       {/* Wallet Connection */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-border">
         <WalletButton />
       </div>
 
@@ -122,8 +130,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
             onClick={() => handleNavigation('/', 'dashboard')}
             className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors mb-4 ${
               location.pathname === '/'
-                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-primary/10 text-primary border border-primary/20'
+                : 'text-foreground hover:bg-accent'
             }`}
           >
             <Home className="w-5 h-5" />
@@ -149,8 +157,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="text-xs text-gray-500 text-center">
+      <div className="p-4 border-t border-border space-y-4">
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground px-1">Theme</span>
+          <ThemeToggle variant="button" showLabel />
+        </div>
+        <div className="text-xs text-muted-foreground text-center pt-2">
           <div>Web3Tools v1.0</div>
           <div className="mt-1">Built with ❤️ for Web3</div>
         </div>

@@ -45,10 +45,16 @@ import {
   Vote,
   Rocket,
   DollarSign,
-  Zap
+  Zap,
+  Shield,
+  Lock,
+  AlertTriangle
 } from 'lucide-react';
 import WalletButton from '@/components/common/WalletButton';
 import { useNavigate } from 'react-router-dom';
+// import { SecurityDashboard } from '@/components/security/SecurityDashboard';
+// import { QualityScore, RiskAssessment } from '@/services/securityService';
+import type { AntiSnipeLevel } from '@/services/antiSnipeService';
 
 // Token types enum
 type TokenType = 'standard' | 'deflationary' | 'governance' | 'meme' | 'stable';
@@ -66,6 +72,11 @@ interface TokenFormData {
   pumpFunInitialLiquidity?: number; // SOL amount for bonding curve
   revokeMintAuthority: boolean;
   revokeFreezeAuthority: boolean;
+  // Security features
+  jitoProtection?: boolean;
+  jitoTipAmount?: number;
+  antiSnipeLevel?: AntiSnipeLevel;
+  enableSecurityScan?: boolean;
 }
 
 const TokenCreatorNew: React.FC = () => {
@@ -85,7 +96,12 @@ const TokenCreatorNew: React.FC = () => {
     enablePumpFun: false,
     pumpFunInitialLiquidity: 1,
     revokeMintAuthority: false,
-    revokeFreezeAuthority: false
+    revokeFreezeAuthority: false,
+    // Security features
+    jitoProtection: false,
+    jitoTipAmount: 0.001,
+    antiSnipeLevel: 'none',
+    enableSecurityScan: true
   });
 
   // Show advanced options
@@ -100,6 +116,10 @@ const TokenCreatorNew: React.FC = () => {
     explorerUrl: string;
   } | null>(null);
   const [error, setError] = useState<string>('');
+
+  // Security state - Currently unused, will be re-enabled when SecurityDashboard is fixed
+  // const [_securityScore, setSecurityScore] = useState<QualityScore | null>(null);
+  // const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
 
   // Main token creation function - WORKING 2024 METHOD
   const createToken = useCallback(async () => {
@@ -311,8 +331,15 @@ const TokenCreatorNew: React.FC = () => {
       enablePumpFun: false,
       pumpFunInitialLiquidity: 1,
       revokeMintAuthority: false,
-      revokeFreezeAuthority: false
+      revokeFreezeAuthority: false,
+      // Security features
+      jitoProtection: false,
+      jitoTipAmount: 0.001,
+      antiSnipeLevel: 'none',
+      enableSecurityScan: true
     });
+    // setSecurityScore(null);
+    // setRiskAssessment(null);
   };
 
   // Validation
@@ -703,6 +730,129 @@ const TokenCreatorNew: React.FC = () => {
                 disabled={isCreating}
               />
             </div>
+
+            {/* Security & Protection Section */}
+            <div className="space-y-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg border border-green-200 dark:border-green-700">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <h3 className="font-semibold text-green-800 dark:text-green-200">Security & Protection</h3>
+                <Badge variant="outline" className="ml-auto bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
+                  Premium
+                </Badge>
+              </div>
+
+              {/* Security Scan Toggle */}
+              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div>
+                  <label className="font-medium flex items-center text-gray-900 dark:text-gray-100">
+                    <Shield className="w-4 h-4 mr-2 text-blue-600" />
+                    Enable Security Scan
+                  </label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Real-time security analysis (FREE)
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={formData.enableSecurityScan || false}
+                  onChange={(e) => setFormData({ ...formData, enableSecurityScan: e.target.checked })}
+                  className="h-4 w-4 text-blue-600 rounded"
+                  disabled={isCreating}
+                />
+              </div>
+
+              {/* JITO MEV Protection */}
+              <div className="space-y-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="font-medium flex items-center text-gray-900 dark:text-gray-100">
+                      <Zap className="w-4 h-4 mr-2 text-yellow-600" />
+                      MEV Protection (JITO Bundles)
+                    </label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Protect against front-running attacks
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formData.jitoProtection || false}
+                    onChange={(e) => setFormData({ ...formData, jitoProtection: e.target.checked })}
+                    className="h-4 w-4 text-yellow-600 rounded"
+                    disabled={isCreating}
+                  />
+                </div>
+
+                {formData.jitoProtection && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Bundle Tip Amount (SOL)
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      max="0.1"
+                      value={formData.jitoTipAmount || 0.001}
+                      onChange={(e) => setFormData({ ...formData, jitoTipAmount: parseFloat(e.target.value) || 0.001 })}
+                      disabled={isCreating}
+                      className="h-11"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Higher tips increase priority. Recommended: 0.001-0.01 SOL
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Anti-Snipe Protection */}
+              <div className="space-y-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <label className="font-medium flex items-center text-gray-900 dark:text-gray-100">
+                  <Lock className="w-4 h-4 mr-2 text-purple-600" />
+                  Anti-Snipe Protection
+                </label>
+                <select
+                  value={formData.antiSnipeLevel || 'none'}
+                  onChange={(e) => setFormData({ ...formData, antiSnipeLevel: e.target.value as AntiSnipeLevel })}
+                  disabled={isCreating}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="none">No Protection</option>
+                  <option value="basic">Basic (5 min delay)</option>
+                  <option value="standard">Standard (15 min delay + limits)</option>
+                  <option value="advanced">Advanced (30 min + whitelist)</option>
+                </select>
+                <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                  {formData.antiSnipeLevel === 'basic' && (
+                    <p>• 5 min launch delay • 5% max wallet • Bot blacklist</p>
+                  )}
+                  {formData.antiSnipeLevel === 'standard' && (
+                    <p>• 15 min launch delay • 3% max wallet • Bot protection • 5 min monitoring</p>
+                  )}
+                  {formData.antiSnipeLevel === 'advanced' && (
+                    <p>• 30 min launch delay • 2% max wallet • Whitelist support • 10 min monitoring</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Security Info Box */}
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
+                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-medium mb-1">Security Features Help</p>
+                  <ul className="space-y-1 text-xs">
+                    <li>• <strong>Security Scan:</strong> Analyzes your token for common risks</li>
+                    <li>• <strong>MEV Protection:</strong> Prevents sandwich attacks at launch</li>
+                    <li>• <strong>Anti-Snipe:</strong> Delays launch to prevent bot sniping</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Security Dashboard - Commented out temporarily due to performance issue */}
+            {/* Causes infinite render loop - needs debouncing */}
+            {/* TODO: Re-enable with useMemo or debounce hook */}
+
+            {/* Security Warning - Disabled until SecurityDashboard is fixed */}
 
             {/* Advanced Options Toggle */}
             <button

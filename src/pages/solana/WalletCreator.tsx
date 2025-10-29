@@ -32,9 +32,9 @@ import {
 
 // Simple progress bar component (if not available in UI library)
 const Progress = ({ value, className }: { value: number; className?: string }) => (
-  <div className={`w-full bg-gray-200 rounded-full h-2 ${className}`}>
-    <div 
-      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+  <div className={`w-full bg-muted rounded-full h-2 ${className}`}>
+    <div
+      className="bg-primary h-2 rounded-full transition-all duration-300"
       style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
     />
   </div>
@@ -359,9 +359,9 @@ const WalletCreator: React.FC = () => {
   // Configuration Step
   if (currentStep === 'config') {
     return (
-      <div className="space-y-6">
+      <div className="wallet-creator-container max-w-full overflow-hidden space-y-6 p-6">
         <div>
-          <h1 className="text-3xl font-bold">Wallet Creator</h1>
+          <h1 className="text-3xl font-bold text-foreground">Wallet Creator</h1>
           <p className="text-muted-foreground">
             Generate cryptographically secure Solana wallets for development and production use
           </p>
@@ -369,21 +369,21 @@ const WalletCreator: React.FC = () => {
 
         {/* Security Warning */}
         {securityWarnings.length > 0 && (
-          <Card className="border-amber-200 bg-amber-50">
+          <Card className="border-warning bg-warning/10 dark:border-warning/30 dark:bg-warning/5">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-amber-800">
+              <CardTitle className="flex items-center gap-2 text-warning dark:text-warning">
                 <Info className="h-5 w-5" />
                 Environment Information
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="text-sm text-amber-700 space-y-1">
+              <ul className="text-sm text-warning/80 dark:text-warning/70 space-y-1">
                 {securityWarnings.map((warning, index) => (
                   <li key={index}>• {warning}</li>
                 ))}
               </ul>
               {network === 'mainnet-beta' && securityWarnings.length > 0 && (
-                <p className="mt-2 text-sm font-medium text-amber-800">
+                <p className="mt-2 text-sm font-medium text-warning dark:text-warning">
                   For production mainnet wallets, consider using a hardware wallet or offline generation.
                 </p>
               )}
@@ -393,10 +393,10 @@ const WalletCreator: React.FC = () => {
 
         {/* Wallet Type Selection */}
         <div className="grid md:grid-cols-2 gap-6">
-          <Card 
+          <Card
             className={`cursor-pointer transition-all duration-200 ${
-              walletType === 'hd' 
-                ? 'ring-2 ring-blue-500 bg-blue-50' 
+              walletType === 'hd'
+                ? 'ring-2 ring-primary bg-primary/10'
                 : 'hover:shadow-md'
             }`}
             onClick={() => setWalletType('hd')}
@@ -404,13 +404,13 @@ const WalletCreator: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-blue-600" />
+                  <Shield className="h-5 w-5 text-primary" />
                   <CardTitle className="text-lg">HD Wallets</CardTitle>
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  <Badge variant="secondary" className="bg-success/20 text-success dark:bg-success/10 dark:text-success">
                     Recommended
                   </Badge>
                 </div>
-                {walletType === 'hd' && <CheckCircle className="h-5 w-5 text-blue-600" />}
+                {walletType === 'hd' && <CheckCircle className="h-5 w-5 text-primary" />}
               </div>
               <CardDescription>
                 Generate wallets from a single BIP39 seed phrase. More secure and easier to backup.
@@ -426,10 +426,10 @@ const WalletCreator: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card 
+          <Card
             className={`cursor-pointer transition-all duration-200 ${
-              walletType === 'standard' 
-                ? 'ring-2 ring-purple-500 bg-purple-50' 
+              walletType === 'standard'
+                ? 'ring-2 ring-secondary bg-secondary/10'
                 : 'hover:shadow-md'
             }`}
             onClick={() => setWalletType('standard')}
@@ -437,10 +437,10 @@ const WalletCreator: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Key className="h-5 w-5 text-purple-600" />
+                  <Key className="h-5 w-5 text-secondary" />
                   <CardTitle className="text-lg">Standard Keypairs</CardTitle>
                 </div>
-                {walletType === 'standard' && <CheckCircle className="h-5 w-5 text-purple-600" />}
+                {walletType === 'standard' && <CheckCircle className="h-5 w-5 text-secondary" />}
               </div>
               <CardDescription>
                 Generate independent Ed25519 keypairs. Each wallet has unique private key.
@@ -521,13 +521,13 @@ const WalletCreator: React.FC = () => {
 
             {/* Network Warning */}
             <div className={`flex items-center gap-2 p-3 rounded-lg ${
-              network === 'mainnet-beta' 
-                ? 'bg-red-50 text-red-800 border border-red-200' 
-                : 'bg-blue-50 text-blue-800 border border-blue-200'
+              network === 'mainnet-beta'
+                ? 'bg-destructive/10 text-destructive border border-destructive/30'
+                : 'bg-primary/10 text-primary border border-primary/30'
             }`}>
               <AlertTriangle className="h-4 w-4" />
               <span className="text-sm">
-                {network === 'mainnet-beta' 
+                {network === 'mainnet-beta'
                   ? 'Production mode: Generated wallets will be on Solana Mainnet - USE WITH CAUTION'
                   : 'Development mode: Generated wallets will be on Solana Devnet'
                 }
@@ -559,7 +559,7 @@ const WalletCreator: React.FC = () => {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="flex items-center gap-2 justify-center">
-              <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+              <RefreshCw className="h-6 w-6 animate-spin text-primary" />
               Generating Real Wallets
             </CardTitle>
             <CardDescription>
@@ -585,7 +585,7 @@ const WalletCreator: React.FC = () => {
     const isHD = walletType === 'hd';
 
     return (
-      <div className="space-y-6">
+      <div className="wallet-creator-container max-w-full overflow-hidden space-y-6 p-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Real Wallet Generation Complete</h1>
@@ -603,28 +603,28 @@ const WalletCreator: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
+              <CheckCircle className="h-5 w-5 text-success" />
               Generation Statistics
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div>
-                <div className="text-2xl font-bold text-green-600">{generatedBatch.wallets.length}</div>
+                <div className="text-2xl font-bold text-success">{generatedBatch.wallets.length}</div>
                 <div className="text-sm text-muted-foreground">Real Wallets Generated</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-blue-600">100%</div>
+                <div className="text-2xl font-bold text-primary">100%</div>
                 <div className="text-sm text-muted-foreground">Success Rate</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-purple-600">{walletType.toUpperCase()}</div>
+                <div className="text-2xl font-bold text-secondary">{walletType.toUpperCase()}</div>
                 <div className="text-sm text-muted-foreground">
                   {walletType === 'hd' ? 'BIP39/BIP44' : 'Ed25519'}
                 </div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-orange-600">{network}</div>
+                <div className="text-2xl font-bold text-warning">{network}</div>
                 <div className="text-sm text-muted-foreground">Network</div>
               </div>
             </div>
@@ -633,25 +633,25 @@ const WalletCreator: React.FC = () => {
 
         {/* HD Wallet Mnemonic Display */}
         {isHD && generatedBatch.mnemonic && generatedBatch.seedPhrase && (
-          <Card className="border-amber-200 bg-amber-50">
+          <Card className="border-warning bg-warning/10 dark:border-warning/30 dark:bg-warning/5">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-amber-800">
+              <CardTitle className="flex items-center gap-2 text-warning dark:text-warning">
                 <Shield className="h-5 w-5" />
                 Master Seed Phrase - REAL RECOVERY PHRASE
                 <Badge variant="destructive" className="ml-2">KEEP SECURE</Badge>
               </CardTitle>
-              <CardDescription className="text-amber-700">
-                This BIP39 seed phrase can recover ALL {generatedBatch.wallets.length} wallets below. 
+              <CardDescription className="text-warning/80 dark:text-warning/70">
+                This BIP39 seed phrase can recover ALL {generatedBatch.wallets.length} wallets below.
                 Store it securely offline and never share it with anyone.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="bg-white p-4 rounded-lg border-2 border-dashed border-amber-300">
+              <div className="bg-card p-4 rounded-lg border-2 border-dashed border-warning/30">
                 <div className="grid grid-cols-3 md:grid-cols-4 gap-2 text-sm font-mono">
                   {generatedBatch.seedPhrase.map((word, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                      <span className="text-gray-500 w-6 text-center">{index + 1}.</span>
-                      <span className="font-medium">{word}</span>
+                    <div key={index} className="flex items-center gap-2 p-2 bg-accent rounded">
+                      <span className="text-muted-foreground w-6 text-center">{index + 1}.</span>
+                      <span className="font-medium text-foreground">{word}</span>
                     </div>
                   ))}
                 </div>
@@ -676,8 +676,8 @@ const WalletCreator: React.FC = () => {
                   Backup to File
                 </Button>
               </div>
-              <div className="bg-red-50 p-3 rounded-lg border border-red-200">
-                <p className="text-red-800 text-sm font-medium">
+              <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/30">
+                <p className="text-destructive dark:text-destructive text-sm font-medium">
                   SECURITY WARNING: Anyone with this seed phrase has FULL CONTROL over all generated wallets!
                 </p>
               </div>
@@ -698,7 +698,7 @@ const WalletCreator: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Privacy Toggle */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-accent rounded-lg">
               <div className="flex items-center gap-2">
                 {showPrivateKeys ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                 <span className="font-medium">Include Private Keys in Export</span>
@@ -775,7 +775,7 @@ const WalletCreator: React.FC = () => {
           <CardContent>
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {generatedBatch.wallets.map((wallet, index) => (
-                <div key={index} className="p-4 border rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div key={index} className="p-4 border rounded-lg bg-accent hover:bg-accent/80 transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">#{index + 1}</Badge>
@@ -784,7 +784,7 @@ const WalletCreator: React.FC = () => {
                           {wallet.derivationPath}
                         </Badge>
                       )}
-                      <Badge variant="default" className="text-xs bg-green-600">
+                      <Badge variant="default" className="text-xs bg-success">
                         REAL
                       </Badge>
                     </div>
@@ -799,22 +799,22 @@ const WalletCreator: React.FC = () => {
                   
                   <div className="space-y-2 text-sm">
                     <div>
-                      <span className="font-medium text-gray-600">Address:</span>
-                      <div className="font-mono text-sm bg-white p-2 rounded border mt-1">
+                      <span className="font-medium text-muted-foreground">Address:</span>
+                      <div className="font-mono text-sm bg-card p-2 rounded border mt-1">
                         {wallet.address}
                       </div>
                     </div>
                     
                     {showPrivateKeys && (
                       <div>
-                        <span className="font-medium text-red-600">Private Key:</span>
-                        <div className="font-mono text-sm bg-red-50 p-2 rounded border mt-1 text-red-800">
+                        <span className="font-medium text-destructive">Private Key:</span>
+                        <div className="font-mono text-sm bg-destructive/10 p-2 rounded border border-destructive/30 mt-1 text-destructive">
                           {wallet.privateKey}
                         </div>
                       </div>
                     )}
                     
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Suggested Amount: {suggestedAmount} SOL</span>
                       <span>Cryptographically Generated: ✅</span>
                     </div>
@@ -826,15 +826,15 @@ const WalletCreator: React.FC = () => {
         </Card>
 
         {/* Security Notice */}
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-destructive/30 bg-destructive/10">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-800">
+            <CardTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
               Critical Security Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-red-700 text-sm space-y-2">
-            <div className="bg-white p-3 rounded border">
+          <CardContent className="text-destructive dark:text-destructive text-sm space-y-2">
+            <div className="bg-card p-3 rounded border">
               <p className="font-medium mb-2">THESE ARE REAL, FUNCTIONAL WALLETS:</p>
               <ul className="space-y-1">
                 <li>• Private keys give FULL control over wallets and any funds sent to them</li>
@@ -846,8 +846,8 @@ const WalletCreator: React.FC = () => {
               </ul>
             </div>
             {network === 'mainnet-beta' && (
-              <div className="bg-red-100 p-3 rounded border border-red-300">
-                <p className="font-bold text-red-900">
+              <div className="bg-destructive/10 p-3 rounded border border-destructive/30">
+                <p className="font-bold text-destructive">
                   MAINNET WARNING: These wallets are on Solana Mainnet. Any SOL or tokens sent to these addresses are REAL VALUE!
                 </p>
               </div>

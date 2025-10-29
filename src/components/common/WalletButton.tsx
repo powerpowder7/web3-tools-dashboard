@@ -1,7 +1,8 @@
-// src/components/common/WalletButton.tsx - REMOVE UNUSED IMPORT
+// src/components/common/WalletButton.tsx - COLLAPSIBLE WALLET DETAILS
+import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Wallet, ChevronDown, Copy, ExternalLink, LogOut } from 'lucide-react';
+import { Wallet, ChevronDown, ChevronUp, Copy, ExternalLink, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useSolanaWallet } from '@/contexts/SolanaWalletContext';
@@ -10,6 +11,7 @@ import analytics from '@/services/analytics';
 const WalletButton = () => {
   const { connected, connecting, publicKey, disconnect, wallet } = useWallet();
   const { balance, network } = useSolanaWallet();
+  const [isExpanded, setIsExpanded] = useState(false); // Default collapsed
 
   const handleCopyAddress = async () => {
     if (publicKey) {
@@ -83,81 +85,93 @@ const WalletButton = () => {
     );
   }
 
-  // Show connected state with details
+  // Show connected state with collapsible details
   if (connected && publicKey) {
     return (
       <div className="w-full space-y-2">
-        {/* Main wallet button */}
-        <div className="bg-success/10 border border-success/20 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
+        {/* Collapsible wallet header */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full bg-success/10 border border-success/20 rounded-lg p-3 hover:bg-success/15 transition-colors"
+        >
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
               <Wallet className="w-4 h-4 text-success" />
-              <span className="font-medium text-success">
+              <span className="font-medium text-success text-sm">
                 {formatAddress(publicKey.toBase58())}
               </span>
             </div>
-            <ChevronDown className="w-4 h-4 text-success" />
+            {isExpanded ? (
+              <ChevronUp className="w-4 h-4 text-success" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-success" />
+            )}
           </div>
 
-          {/* Wallet Info */}
-          <div className="space-y-2 mb-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Wallet</span>
-              <span className="font-medium text-foreground">{wallet?.adapter?.name || 'Unknown'}</span>
+          {/* Network indicator - always visible */}
+          <div className="flex items-center justify-start mt-2">
+            <Badge
+              variant={network === 'devnet' ? 'default' : 'destructive'}
+              className="text-xs"
+            >
+              {network === 'devnet' ? 'Devnet' : 'Mainnet'}
+            </Badge>
+          </div>
+        </button>
+
+        {/* Expandable wallet details */}
+        {isExpanded && (
+          <div className="bg-card border border-border rounded-lg p-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
+            {/* Wallet Info */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Wallet</span>
+                <span className="font-medium text-foreground">{wallet?.adapter?.name || 'Unknown'}</span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Balance</span>
+                <span className="font-medium text-foreground">
+                  {typeof balance === 'number' ? `${balance.toFixed(4)} SOL` : 'Loading...'}
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Balance</span>
-              <span className="font-medium text-foreground">
-                {typeof balance === 'number' ? `${balance.toFixed(4)} SOL` : 'Loading...'}
-              </span>
+            {/* Action buttons */}
+            <div className="grid grid-cols-3 gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopyAddress}
+                className="text-xs p-2 hover:bg-accent"
+              >
+                <Copy className="w-3 h-3 mr-1" />
+                Copy
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleViewExplorer}
+                className="text-xs p-2 hover:bg-accent"
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Explorer
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDisconnect}
+                className="text-xs p-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <LogOut className="w-3 h-3 mr-1" />
+                Disconnect
+              </Button>
             </div>
           </div>
-
-          {/* Action buttons */}
-          <div className="grid grid-cols-3 gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCopyAddress}
-              className="text-xs p-2 hover:bg-accent"
-            >
-              <Copy className="w-3 h-3 mr-1" />
-              Copy
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleViewExplorer}
-              className="text-xs p-2 hover:bg-accent"
-            >
-              <ExternalLink className="w-3 h-3 mr-1" />
-              Explorer
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDisconnect}
-              className="text-xs p-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              <LogOut className="w-3 h-3 mr-1" />
-              Disconnect
-            </Button>
-          </div>
-        </div>
-
-        {/* Network indicator */}
-        <div className="flex items-center justify-center">
-          <Badge
-            variant={network === 'devnet' ? 'default' : 'destructive'}
-            className="text-xs"
-          >
-            {network === 'devnet' ? 'Devnet' : 'Mainnet'}
-          </Badge>
-        </div>
+        )}
       </div>
     );
   }

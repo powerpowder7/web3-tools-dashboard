@@ -6,16 +6,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import {
   Tutorial,
-  TutorialState,
   TutorialContextValue,
   UserProgress,
   HelpContent,
   TokenTemplate,
   SuccessStory,
   TutorialFeedback,
-  Achievement,
-  STORAGE_KEYS,
-  TUTORIAL_CONSTANTS,
 } from '@/types/tutorial';
 import tutorialService from '@/services/tutorialService';
 import { useSolanaWallet } from './SolanaWalletContext';
@@ -49,7 +45,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   const [highlightedElement, setHighlightedElement] = useState<string | null>(null);
   const [helpTopic, setHelpTopic] = useState<HelpContent | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [filteredTutorials, setFilteredTutorials] = useState<Tutorial[]>([]);
+  const [filteredTutorials] = useState<Tutorial[]>([]);
   const [templates, setTemplates] = useState<TokenTemplate[]>([]);
   const [successStories, setSuccessStories] = useState<SuccessStory[]>([]);
 
@@ -58,7 +54,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
     if (activeTutorial && userProgress) {
       const interval = setInterval(() => {
         tutorialService.saveUserProgress(userProgress);
-      }, TUTORIAL_CONSTANTS.AUTO_SAVE_INTERVAL);
+      }, 30000); // 30 seconds
 
       return () => clearInterval(interval);
     }
@@ -255,7 +251,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
       setUserProgress(progress);
 
       // Check for new achievements
-      const newAchievements = await tutorialService.checkAchievements(userId);
+      await tutorialService.checkAchievements(userId);
 
       // Show completion overlay (to be implemented in UI)
       setTimeout(() => {

@@ -6,7 +6,9 @@
       "Read(//c/Users/DELL/OneDrive/Desktop/**)",
       "Bash(find:*)",
       "Bash(tree:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)"
     ],
     "deny": [],
     "ask": []

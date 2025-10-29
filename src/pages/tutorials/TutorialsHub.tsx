@@ -20,7 +20,6 @@ import {
   Play,
   CheckCircle2,
   Bookmark,
-  Filter,
   ChevronRight,
   Rocket,
   Shield,

@@ -47,8 +47,7 @@ import {
   DollarSign,
   Zap,
   Shield,
-  Lock,
-  AlertTriangle
+  Lock
 } from 'lucide-react';
 import WalletButton from '@/components/common/WalletButton';
 import { useNavigate } from 'react-router-dom';

@@ -157,8 +157,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
       savePreference(theme);
 
       // Track theme change in analytics
-      if (window.gtag) {
-        window.gtag('event', 'theme_changed', {
+      if (typeof window !== 'undefined' && (window as any).gtag) {
+        (window as any).gtag('event', 'theme_changed', {
           theme_mode: theme,
         });
       }
@@ -172,8 +172,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
       savePreference(newPreference);
 
       // Track preference change in analytics
-      if (window.gtag) {
-        window.gtag('event', 'theme_preference_changed', {
+      if (typeof window !== 'undefined' && (window as any).gtag) {
+        (window as any).gtag('event', 'theme_preference_changed', {
           preference: newPreference,
         });
       }

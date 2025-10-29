@@ -199,7 +199,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
 // ============================================================================
 
 export const ThemeSwitch: React.FC<{ className?: string }> = ({ className }) => {
-  const { preference, setPreference, effectiveTheme } = useTheme();
+  const { setPreference, effectiveTheme } = useTheme();
 
   const isDark = effectiveTheme === 'dark';
 

@@ -46,7 +46,7 @@ export const ContextualTooltip: React.FC<ContextualTooltipProps> = ({
   const { showContextualHelp, userProgress } = useTutorial();
   const [isOpen, setIsOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [loadedHelp, setLoadedHelp] = useState<HelpContent | null>(propHelpContent || null);
+  const [loadedHelp, _setLoadedHelp] = useState<HelpContent | null>(propHelpContent || null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
 

@@ -8,7 +8,6 @@ import { useTutorial } from '@/contexts/TutorialContext';
 import { SpotlightHighlight } from './SpotlightHighlight';
 import { TutorialModal } from './TutorialModal';
 import { TutorialCompletionModal } from './TutorialCompletionModal';
-import { cn } from '@/lib/utils';
 
 interface TutorialOverlayProps {
   className?: string;

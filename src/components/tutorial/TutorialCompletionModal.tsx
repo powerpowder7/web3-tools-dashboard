@@ -33,7 +33,7 @@ export const TutorialCompletionModal: React.FC<TutorialCompletionModalProps> = (
 }) => {
   const { userProgress, checkAchievements } = useTutorial();
   const [showConfetti, setShowConfetti] = useState(true);
-  const [newAchievements, setNewAchievements] = useState(tutorial.rewards || []);
+  const [newAchievements, _setNewAchievements] = useState(tutorial.rewards || []);
 
   const tutorialProgress = userProgress?.tutorialsProgress[tutorial.id];
   const timeSpent = tutorialProgress?.totalTimeSpent || 0;

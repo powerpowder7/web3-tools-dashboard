@@ -83,7 +83,7 @@ export const SpotlightHighlight: React.FC<SpotlightHighlightProps> = ({
     if (elementRect && onElementClick) {
       const element = document.querySelector(targetElement);
       if (element) {
-        const handleClick = (e: Event) => {
+        const handleClick = () => {
           onElementClick();
         };
         element.addEventListener('click', handleClick);

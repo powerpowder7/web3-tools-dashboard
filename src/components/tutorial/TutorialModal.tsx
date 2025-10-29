@@ -47,7 +47,6 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
     isPaused,
     pauseTutorial,
     resumeTutorial,
-    nextStep,
     previousStep,
     completeStep,
     skipTutorial,
@@ -57,7 +56,6 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
 
   const [showHints, setShowHints] = useState(false);
   const [currentHintIndex, setCurrentHintIndex] = useState(0);
-  const [stepStartTime, setStepStartTime] = useState(Date.now());
 
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === totalSteps - 1;
@@ -67,14 +65,11 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
   const isBookmarked = tutorialProgress?.bookmarked || false;
 
   useEffect(() => {
-    setStepStartTime(Date.now());
     setShowHints(false);
     setCurrentHintIndex(0);
   }, [currentStepIndex]);
 
   const handleNext = () => {
-    const timeSpent = Math.floor((Date.now() - stepStartTime) / 1000);
-
     // Mark current step as completed
     completeStep(currentStep.id);
   };
@@ -85,12 +80,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
 
   const handleToggleHint = () => {
     setShowHints(!showHints);
-    if (!showHints && currentHintIndex === 0) {
-      // Track hint usage
-      const tutorialId = tutorial.id;
-      const stepId = currentStep.id;
-      // Update hint count in progress
-    }
+    // Track hint usage if needed in the future
   };
 
   const handleNextHint = () => {

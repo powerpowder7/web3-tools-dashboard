@@ -15,7 +15,6 @@ import {
   StepProgress,
   DifficultyLevel,
   STORAGE_KEYS,
-  TUTORIAL_CONSTANTS,
 } from '@/types/tutorial';
 import analytics from './analytics';
 

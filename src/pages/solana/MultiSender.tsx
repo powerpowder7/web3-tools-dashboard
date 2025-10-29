@@ -1,5 +1,5 @@
 // src/pages/solana/MultiSender.tsx - Clean Production Version
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Upload, Download, Plus, Minus, Send, AlertTriangle, 
   Loader2, FileText, Users, Wallet, 
@@ -88,8 +88,24 @@ const MultiSender: React.FC = () => {
   // UI state
   const [showResults, setShowResults] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  
+  const [pendingImport, setPendingImport] = useState<boolean>(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check for pending wallet data from Wallet Generator on mount
+  useEffect(() => {
+    const storedData = localStorage.getItem('web3tools_shared_multi_sender');
+    if (storedData) {
+      try {
+        const data = JSON.parse(storedData);
+        if (data.recipients && Array.isArray(data.recipients) && data.recipients.length > 0) {
+          setPendingImport(true);
+        }
+      } catch (error) {
+        console.error('Failed to parse stored wallet data:', error);
+      }
+    }
+  }, []);
 
   // Enhanced address validation
   const validateAddress = useCallback((address: string): boolean => {
@@ -265,23 +281,65 @@ const MultiSender: React.FC = () => {
     }
   }, [handleCSVUpload]);
 
-  // Mock wallet generator import
+  // Real wallet generator import from localStorage
   const importFromWalletGenerator = useCallback(() => {
-    const mockWallets: Recipient[] = Array.from({ length: 5 }, (_, i) => ({
-      id: `gen-${i + 1}`,
-      address: `${Math.random().toString(36).substring(2, 15)}${'1'.repeat(32)}`,
-      amount: 0.1,
-      isValid: true,
-      nickname: `Generated Wallet #${i + 1}`,
-      status: 'pending' as const
-    }));
-    
-    setRecipients(mockWallets);
-    setInputMethod('wallet-generator');
-    
-    analytics.trackEvent('multi_sender_wallet_generator_import', {
-      imported_wallets: mockWallets.length
-    });
+    try {
+      // Read from localStorage where WalletCreator stores the data
+      const storedData = localStorage.getItem('web3tools_shared_multi_sender');
+
+      if (!storedData) {
+        alert('No wallets found from Wallet Generator. Please generate wallets first.');
+        return;
+      }
+
+      const data = JSON.parse(storedData);
+
+      // Validate data structure
+      if (!data.recipients || !Array.isArray(data.recipients)) {
+        alert('Invalid wallet data format. Please regenerate wallets.');
+        return;
+      }
+
+      // Check if data is stale (older than 1 hour)
+      const timestamp = new Date(data.timestamp);
+      const hoursSinceGeneration = (Date.now() - timestamp.getTime()) / (1000 * 60 * 60);
+
+      if (hoursSinceGeneration > 1) {
+        const shouldProceed = confirm(
+          `This wallet data is ${Math.floor(hoursSinceGeneration)} hour(s) old. Continue importing?`
+        );
+        if (!shouldProceed) return;
+      }
+
+      // Convert to Recipient format
+      const importedWallets: Recipient[] = data.recipients.map((r: any, index: number) => ({
+        id: `imported-${Date.now()}-${index}`,
+        address: r.address,
+        amount: r.amount || 0,
+        isValid: r.isValid ?? true,
+        nickname: r.nickname || `Imported Wallet #${index + 1}`,
+        status: 'pending' as const
+      }));
+
+      setRecipients(importedWallets);
+      setInputMethod('manual'); // Switch to manual so they can see the imported list
+
+      analytics.trackEvent('multi_sender_wallet_generator_import', {
+        imported_wallets: importedWallets.length,
+        source: data.source || 'unknown',
+        total_amount: importedWallets.reduce((sum, w) => sum + w.amount, 0)
+      });
+
+      // Clear the stored data and pending notification after successful import
+      localStorage.removeItem('web3tools_shared_multi_sender');
+      setPendingImport(false);
+
+      alert(`Successfully imported ${importedWallets.length} wallets from Wallet Generator!`);
+
+    } catch (error) {
+      console.error('Failed to import from Wallet Generator:', error);
+      alert('Failed to import wallets. Please try again or use manual entry.');
+    }
   }, []);
 
   // Distribution helpers
@@ -664,6 +722,43 @@ const MultiSender: React.FC = () => {
                   <p className="text-amber-700 dark:text-amber-300 text-sm">
                     You're using real SOL and tokens. Verify all addresses carefully.
                   </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Pending Import Notification */}
+        {pendingImport && (
+          <Card className="border-primary bg-primary/10 dark:border-primary/30 dark:bg-primary/5 animate-in slide-in-from-top-2 duration-200">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Wallet className="w-6 h-6 text-primary" />
+                  <div>
+                    <h3 className="font-semibold text-primary dark:text-primary">
+                      Wallets Ready to Import
+                    </h3>
+                    <p className="text-primary/80 dark:text-primary/70 text-sm">
+                      You have generated wallets from Wallet Creator ready to import
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button onClick={importFromWalletGenerator} size="sm" className="bg-primary hover:bg-primary/90">
+                    <Users className="w-4 h-4 mr-2" />
+                    Import Now
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      localStorage.removeItem('web3tools_shared_multi_sender');
+                      setPendingImport(false);
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </CardContent>
